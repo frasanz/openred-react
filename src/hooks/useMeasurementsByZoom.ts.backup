@@ -1,0 +1,130 @@
+import { useState, useEffect, useRef } from 'react';
+import { Measurement, Project } from '../types';
+import apiService from '../services/api';
+
+interface UseMeasurementsByZoomOptions {
+  selectedProject?: Project | null;
+  zoom: number;
+  enabled?: boolean;
+  onProgress?: (loaded: number, total: number) => void;
+}
+
+interface UseMeasurementsByZoomResult {
+  measurements: Measurement[];
+  h3Data: any[];
+  loading: boolean;
+  error: string | null;
+  isUsingH3: boolean;
+}
+
+// 🎯 CONFIGURACIÓN DE ZOOM Y RESOLUCIÓN H3
+const H3_ZOOM_THRESHOLD = 10; // Hasta zoom 10 → H3, desde zoom 11 → puntos individuales
+
+/**
+ * Mapea el nivel de zoom del mapa a una resolución H3 apropiada.
+ * A menor zoom (más alejado), menor resolución H3 (hexágonos más grandes).
+ * A mayor zoom (más cerca), mayor resolución H3 (hexágonos más pequeños).
+ * 
+ * Zoom levels vs H3 resolution:
+ * - Zoom 0-3:   H3 res 1-2 (hexágonos muy grandes, países/regiones)
+ * - Zoom 4-5:   H3 res 3-4 (hexágonos grandes, provincias)
+ * - Zoom 6-7:   H3 res 5-6 (hexágonos medianos, ciudades)
+ * - Zoom 8-9:   H3 res 7-8 (hexágonos pequeños, barrios)
+ * - Zoom 10:    H3 res 9   (hexágonos muy pequeños, calles)
+ */
+const getH3ResolutionForZoom = (zoom: number): number => {
+  if (zoom <= 3) return 2;
+  if (zoom <= 5) return 4;
+  if (zoom <= 7) return 6;
+  if (zoom <= 9) return 8;
+  return 9; // Zoom 10
+};
+
+/**
+ * Hook para cargar mediciones según el nivel de zoom del mapa.
+ * - Zoom 0-10: Usa agregaciones H3 para mejor rendimiento
+ * - Zoom 11+: Usa puntos individuales para mayor detalle
+ */
+export const useMeasurementsByZoom = ({
+  selectedProject,
+  zoom,
+  enabled = true,
+  onProgress
+}: UseMeasurementsByZoomOptions): UseMeasurementsByZoomResult => {
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [h3Data, setH3Data] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const isUsingH3 = zoom <= H3_ZOOM_THRESHOLD;
+  
+  // Solo necesitamos saber qué cargamos la última vez
+  const lastLoadedRef = useRef({ projectId: -1, isH3: false, zoom: -1 });
+
+  useEffect(() => {
+    // Si no está habilitado o no hay proyecto, no hacer nada
+    if (!enabled || !selectedProject) {
+      return;
+    }
+
+    const projectId = selectedProject.id;
+    const roundedZoom = Math.round(zoom);
+    
+    // ¿Necesitamos recargar?
+    const needsReload = 
+      lastLoadedRef.current.projectId !== projectId ||     // Cambió proyecto
+      lastLoadedRef.current.isH3 !== isUsingH3 ||         // Cambió modo H3↔puntos
+      (isUsingH3 && lastLoadedRef.current.zoom !== roundedZoom); // En H3, cambió zoom
+
+    if (!needsReload) {
+      return;
+    }
+
+    // Cargar datos
+    const loadData = async () => {
+      console.log(`�️ Loading ${isUsingH3 ? 'H3' : 'points'} for zoom ${roundedZoom}`);
+      setLoading(true);
+      setError(null);
+
+      try {
+        const measurementType = selectedProject.project_type === 'light_pollution' 
+          ? 'light_pollution' 
+          : 'radiation';
+
+        if (isUsingH3) {
+          const data = await apiService.getH3Aggregation({
+            resolution: H3_RESOLUTION,
+            project: projectId,
+            measurementType
+          });
+          
+          console.log(`✅ ${data.length} hexagons loaded`);
+          setH3Data(data);
+          setMeasurements([]);
+        } else {
+          const data = await apiService.getMeasurementsWithProgress(
+            (loaded, total) => onProgress?.(loaded, total),
+            { autoOptimize: true, projectId, measurementType }
+          );
+          
+          console.log(`✅ ${data.length} points loaded`);
+          setMeasurements(data);
+          setH3Data([]);
+        }
+
+        lastLoadedRef.current = { projectId, isH3: isUsingH3, zoom: roundedZoom };
+      } catch (err: any) {
+        console.error('❌ Error loading data:', err);
+        setError(err.message || 'Error al cargar los datos');
+        setMeasurements([]);
+        setH3Data([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [selectedProject, zoom, enabled, isUsingH3, onProgress]);
+
+  return { measurements, h3Data, loading, error, isUsingH3 };
+};

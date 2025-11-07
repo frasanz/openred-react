@@ -1,0 +1,24 @@
+/* Mapbox GL styles required for proper rendering */
+@import url('https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.css');
+
+/* Ensure the map container has proper styling */
+.deck-gl-canvas {
+  position: relative;
+}
+
+.mapboxgl-map {
+  position: relative;
+}
+
+/* Custom tooltip styles */
+.deck-tooltip {
+  max-width: 300px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 1000;
+}

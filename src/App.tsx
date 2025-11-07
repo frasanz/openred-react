@@ -1,25 +1,154 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { CssBaseline, GlobalStyles } from '@mui/material';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProjectProvider } from './context/ProjectContext';
+import Navbar from './components/Navbar';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import EmailVerificationPage from './pages/EmailVerificationPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import ConfirmResetPasswordPage from './pages/ConfirmResetPasswordPage';
+import DevicesPage from './pages/DevicesPage';
+import ProfilePage from './pages/ProfilePage';
+import TracksPage from './pages/TracksPage';
+import theme from './theme/theme';
+
+// Estilos globales
+const globalStyles = {
+  '*': {
+    boxSizing: 'border-box',
+  },
+  html: {
+    height: '100%',
+  },
+  body: {
+    height: '100%',
+    margin: 0,
+    fontFamily: theme.typography.fontFamily,
+  },
+  '#root': {
+    height: '100%',
+  },
+};
+
+// Componente para rutas protegidas
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div>Cargando...</div>; // Aquí podrías poner un spinner
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+// Componente para rutas de invitados (solo no autenticados)
+const GuestRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div>Cargando...</div>;
+  }
+
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+};
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <GlobalStyles styles={globalStyles} />
+      
+      <AuthProvider>
+        <ProjectProvider>
+          <Router>
+          <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <Navbar />
+            
+            <div style={{ flexGrow: 1, overflow: 'hidden' }}>
+              <Routes>
+                {/* Rutas públicas */}
+                <Route path="/" element={<HomePage />} />
+                <Route 
+                  path="/login" 
+                  element={
+                    <GuestRoute>
+                      <LoginPage />
+                    </GuestRoute>
+                  } 
+                />
+                <Route 
+                  path="/register" 
+                  element={
+                    <GuestRoute>
+                      <RegisterPage />
+                    </GuestRoute>
+                  } 
+                />
+                <Route 
+                  path="/email-verification" 
+                  element={<EmailVerificationPage />} 
+                />
+                <Route 
+                  path="/verify-email" 
+                  element={<VerifyEmailPage />} 
+                />
+                <Route 
+                  path="/reset-password" 
+                  element={
+                    <GuestRoute>
+                      <ResetPasswordPage />
+                    </GuestRoute>
+                  } 
+                />
+                <Route 
+                  path="/reset-password/confirm" 
+                  element={<ConfirmResetPasswordPage />} 
+                />
+
+                {/* Rutas protegidas */}
+                <Route 
+                  path="/devices" 
+                  element={
+                    <ProtectedRoute>
+                      <DevicesPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/tracks" 
+                  element={
+                    <ProtectedRoute>
+                      <TracksPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                {/* Ruta catch-all */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </div>
+        </Router>
+        </ProjectProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

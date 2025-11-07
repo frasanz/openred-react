@@ -1,0 +1,718 @@
+import React, { useState, useMemo, useCallback } from 'react';
+import DeckGL from '@deck.gl/react';
+import { ScatterplotLayer } from '@deck.gl/layers';
+import { HexagonLayer, HeatmapLayer, ScreenGridLayer } from '@deck.gl/aggregation-layers';
+import { Map } from 'react-map-gl';
+import './MapComponent.css';
+import {
+  Box,
+  Paper,
+  Typography,
+  CircularProgress,
+  Alert,
+  IconButton,
+} from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { Measurement, Campaign, MapFilters, Project, AdaptiveFilters, CommonFilters, RadiationFilters, LightPollutionFilters } from '../types';
+import FiltersPanelMD3 from './FiltersPanelMD3';
+
+// Helper function to format dates without date-fns
+const formatDate = (date: Date, format: string): string => {
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = d.getHours().toString().padStart(2, '0');
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  
+  const monthNames = [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  ];
+  
+  switch (format) {
+    case 'dd/MM/yyyy HH:mm':
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    case 'dd MMM yyyy':
+      return `${day} ${monthNames[d.getMonth()]} ${year}`;
+    case 'dd/MM/yy':
+      return `${day}/${month}/${year.toString().slice(-2)}`;
+    default:
+      return d.toLocaleDateString('es-ES');
+  }
+};
+
+// Mapbox token - verificar si es válido
+const MAPBOX_ACCESS_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
+const isValidMapboxToken = MAPBOX_ACCESS_TOKEN && 
+  MAPBOX_ACCESS_TOKEN.startsWith('pk.') && 
+  !MAPBOX_ACCESS_TOKEN.includes('example_token_here');
+
+// Configuración inicial del mapa - España completa incluyendo Canarias
+const INITIAL_VIEW_STATE = {
+  longitude: -5.5,  // Centro de España (incluyendo Canarias)
+  latitude: 36.5,   // Centro de España (incluyendo Canarias) 
+  zoom: 5.5,        // Zoom para mostrar toda España y Canarias
+  pitch: 0,
+  bearing: 0
+};
+
+interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch: number;
+  bearing: number;
+}
+
+interface HoveredObject {
+  measurement?: Measurement;
+  hexagon?: {
+    points: Array<{ radiation: number }>;
+    [key: string]: any;
+  };
+  screenGrid?: {
+    [key: string]: any;
+  };
+  count?: number;
+  avgRadiation?: number;
+  totalWeight?: number;
+}
+
+interface HoverInfo {
+  x: number;
+  y: number;
+}
+
+interface MapComponentProps {
+  measurements: Measurement[];
+  campaigns: Campaign[];
+  filters: MapFilters;
+  onFiltersChange: (filters: MapFilters) => void;
+  loading?: boolean;
+  selectedProject?: Project | null;
+  
+  // Nuevas props para filtros adaptativos
+  adaptiveFilters?: AdaptiveFilters;
+  onCommonFiltersChange?: (filters: Partial<CommonFilters>) => void;
+  onRadiationFiltersChange?: (filters: Partial<RadiationFilters>) => void;
+  onLightPollutionFiltersChange?: (filters: Partial<LightPollutionFilters>) => void;
+}
+
+const MapComponent: React.FC<MapComponentProps> = ({
+  measurements,
+  campaigns,
+  filters,
+  onFiltersChange,
+  loading = false,
+  selectedProject = null,
+  
+  // Nuevas props para filtros adaptativos
+  adaptiveFilters,
+  onCommonFiltersChange,
+  onRadiationFiltersChange,
+  onLightPollutionFiltersChange,
+}) => {
+  const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW_STATE);
+
+  const [hoveredObject, setHoveredObject] = useState<HoveredObject | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const [visualizationMode, setVisualizationMode] = useState<'points' | 'hexagon' | 'heatmap' | 'screengrid'>('points');
+  const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false);
+  const [hexagonRadius, setHexagonRadius] = useState<number>(1000);
+  const [debouncedHexagonRadius, setDebouncedHexagonRadius] = useState<number>(1000);
+
+  // Debounce optimizado del radio del hexágono para mejorar performance
+  React.useEffect(() => {
+    // Solo hacer debounce si el cambio es significativo
+    const threshold = 100; // metros
+    if (Math.abs(hexagonRadius - debouncedHexagonRadius) <= threshold) return;
+    
+    const timer = setTimeout(() => {
+      setDebouncedHexagonRadius(hexagonRadius);
+    }, 150); // 150ms de debounce
+
+    return () => clearTimeout(timer);
+  }, [hexagonRadius, debouncedHexagonRadius]);
+
+  // Ajustar pitch según el modo de visualización (mantener bearing libre)
+  React.useEffect(() => {
+    if (visualizationMode === 'hexagon') {
+      // Para hexágonos 3D, usar un pitch ligero para mejor visualización
+      setViewState(prev => ({ ...prev, pitch: 45 }));
+    } else {
+      // Para otros modos, vista completamente plana
+      setViewState(prev => ({ ...prev, pitch: 0 }));
+    }
+  }, [visualizationMode]);
+
+  // Filtrar mediciones basado en los filtros actuales
+  const filteredMeasurements = useMemo(() => {
+    return measurements.filter((measurement) => {
+      const measurementDate = new Date(measurement.dateTime);
+      const dateInRange = measurementDate >= filters.startDate && measurementDate <= filters.endDate;
+      
+      // Get the measurement value based on type
+      let measurementValue: number;
+      if ('radiation_value' in measurement) {
+        measurementValue = measurement.radiation_value;
+      } else if ('sky_brightness' in measurement) {
+        measurementValue = measurement.sky_brightness;
+      } else {
+        return false; // Skip measurements without recognized value field
+      }
+      
+      const intensityInRange = 
+        measurementValue >= filters.minIntensity && 
+        measurementValue <= filters.maxIntensity;
+      
+      const campaignMatch = !filters.campaignId || 
+        (measurement.device && campaigns.some(c => 
+          c.id === filters.campaignId && 
+          c.devices.some(d => d.id === measurement.device)
+        ));
+
+      return dateInRange && intensityInRange && campaignMatch;
+    });
+  }, [measurements, filters, campaigns]);
+
+  // Función para obtener el valor de medición independientemente del tipo
+  const getMeasurementValue = useCallback((measurement: Measurement): number => {
+    if ('radiation_value' in measurement) {
+      return measurement.radiation_value;
+    } else if ('sky_brightness' in measurement) {
+      return measurement.sky_brightness;
+    }
+    return 0; // Fallback
+  }, []);
+
+  // Función para obtener la unidad de medición
+  const getMeasurementUnit = useCallback((measurement: Measurement): string => {
+    if ('radiation_unit' in measurement) {
+      return measurement.radiation_unit;
+    } else if ('brightness_unit' in measurement) {
+      return measurement.brightness_unit;
+    }
+    return '';
+  }, []);
+
+  const getRadiationColor = useCallback((value: number): [number, number, number] => {
+    const minValue = 50;
+    const maxValue = 200;
+
+    // Clamp the value to stay within the range
+    const clampedValue = Math.max(minValue, Math.min(maxValue, value));
+    
+    // Calculate the interpolation factor (0 means fully green, 1 means fully red)
+    const t = (clampedValue - minValue) / (maxValue - minValue);
+    
+    // Interpolate between green and red
+    const red = Math.round((1 - t) * 0 + t * 155 + 100);  // Red channel (100 to 255)
+    const green = Math.round((1 - t) * 155 + t * 0 + 100);  // Green channel (255 to 100)
+    const blue = 100;  // Blue channel is constant (100)
+    
+    return [red, green, blue];
+  }, []);
+
+  // Memoizar la transformación de datos para mejorar performance
+  const transformedData = useMemo(() => {
+    const data = filteredMeasurements.map(m => ({
+      position: [Number(m.longitude), Number(m.latitude)],
+      measurement: m,
+      value: getMeasurementValue(m)
+    }));
+    
+    // Debug log for hexagon data
+    if (visualizationMode === 'hexagon' && data.length > 0) {
+      console.log('Hexagon transformedData sample:', data.slice(0, 3));
+      console.log('Value range:', Math.min(...data.map(d => d.value)), '-', Math.max(...data.map(d => d.value)));
+    }
+    
+    return data;
+  }, [filteredMeasurements, getMeasurementValue, visualizationMode]);
+
+  // useCallback para handlers que se pasan a child components
+  const handleFiltersChange = useCallback((newFilters: any) => {
+    onFiltersChange({ ...filters, ...newFilters });
+  }, [filters, onFiltersChange]);
+
+  const handleVisualizationModeChange = useCallback((mode: string) => {
+    setVisualizationMode(mode as 'points' | 'hexagon' | 'heatmap' | 'screengrid');
+  }, []);
+
+  const handleHexagonRadiusChange = useCallback((radius: number) => {
+    setHexagonRadius(radius);
+  }, []);
+
+  const handleFiltersToggle = useCallback((collapsed: boolean) => {
+    setFiltersCollapsed(collapsed);
+  }, []);
+
+  // Crear las capas según el modo de visualización seleccionado (optimizado)
+  const layers = useMemo(() => {
+    switch (visualizationMode) {
+      case 'points':
+        return [
+          new ScatterplotLayer({
+            id: 'scatterplot-layer',
+            data: filteredMeasurements,
+            getPosition: (d: Measurement): [number, number, number] => [Number(d.longitude), Number(d.latitude), d.altitude || 0],
+            getRadius: 150,
+            getFillColor: (d: Measurement) => getRadiationColor(getMeasurementValue(d)),
+            radiusMinPixels: 8,
+            radiusMaxPixels: 25,
+            pickable: true,
+            onHover: (info: any) => {
+              if (info.object) {
+                setHoveredObject({ measurement: info.object });
+                setHoverInfo({ x: info.x, y: info.y });
+              } else {
+                setHoveredObject(null);
+                setHoverInfo(null);
+              }
+              return false;
+            }
+          })
+        ];
+
+      case 'hexagon':
+        return [
+          new HexagonLayer({
+            id: `hexagon-layer-${debouncedHexagonRadius}`,
+            data: transformedData,
+            pickable: true,
+            extruded: true,
+            radius: debouncedHexagonRadius,
+            elevationScale: 8,
+            elevationRange: [0, 3000] as [number, number],
+            coverage: 1,
+            getPosition: (d: any) => d.position,
+            getElevationWeight: (d: any) => 1,
+            elevationAggregation: 'SUM',
+            getColorWeight: (d: any) => d.value,
+            colorAggregation: 'MEAN',
+            colorDomain: [0, 200],
+            colorRange: [
+              [1, 152, 189] as [number, number, number],
+              [73, 227, 206] as [number, number, number],
+              [216, 254, 181] as [number, number, number],
+              [254, 237, 177] as [number, number, number],
+              [254, 173, 84] as [number, number, number],
+              [209, 55, 78] as [number, number, number]
+            ],
+            onHover: (info: any) => {
+              if (info.object) {
+                const hexObject = info.object;
+                const count = hexObject.count || 0;
+                let avgRadiation = hexObject.colorValue || 0;
+                
+                setHoveredObject({ 
+                  hexagon: info.object,
+                  count,
+                  avgRadiation
+                });
+                setHoverInfo({ x: info.x, y: info.y });
+              } else {
+                setHoveredObject(null);
+                setHoverInfo(null);
+              }
+              return false;
+            }
+          })
+        ];
+
+      case 'heatmap':
+        return [
+          new HeatmapLayer({
+            id: 'heatmap-layer',
+            data: transformedData,
+            getPosition: (d: any) => d.position,
+            getWeight: (d: any) => d.value,
+            radiusPixels: 60,
+            intensity: 1,
+            threshold: 0.03,
+            colorRange: [
+              [255, 255, 178, 0] as [number, number, number, number],
+              [254, 217, 118, 85] as [number, number, number, number],
+              [254, 178, 76, 127] as [number, number, number, number],
+              [253, 141, 60, 170] as [number, number, number, number],
+              [252, 78, 42, 212] as [number, number, number, number],
+              [227, 26, 28, 255] as [number, number, number, number],
+              [177, 0, 38, 255] as [number, number, number, number]
+            ]
+          })
+        ];
+
+      case 'screengrid':
+        return [
+          new ScreenGridLayer({
+            id: 'screengrid-layer',
+            data: transformedData,
+            getPosition: (d: any) => d.position,
+            getWeight: (d: any) => d.value,
+            cellSizePixels: 40,
+            pickable: true,
+            colorRange: [
+              [255, 255, 178, 25] as [number, number, number, number],
+              [254, 217, 118, 85] as [number, number, number, number],
+              [254, 178, 76, 127] as [number, number, number, number],
+              [253, 141, 60, 170] as [number, number, number, number],
+              [252, 78, 42, 212] as [number, number, number, number],
+              [227, 26, 28, 255] as [number, number, number, number],
+              [177, 0, 38, 255] as [number, number, number, number]
+            ],
+            onHover: (info: any) => {
+              if (info.object) {
+                setHoveredObject({ 
+                  screenGrid: info.object,
+                  count: info.object.count,
+                  totalWeight: info.object.totalWeight
+                });
+                setHoverInfo({ x: info.x, y: info.y });
+              } else {
+                setHoveredObject(null);
+                setHoverInfo(null);
+              }
+              return false;
+            }
+          })
+        ];
+
+      default:
+        return [];
+    }
+  }, [visualizationMode, filteredMeasurements, transformedData, debouncedHexagonRadius, getRadiationColor, getMeasurementValue]);
+
+  // Renderizar tooltip memoizado
+  const renderTooltip = useCallback(() => {
+    if (!hoveredObject || !hoverInfo) return null;
+
+    const { x, y } = hoverInfo;
+
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          zIndex: 1000,
+          pointerEvents: 'none',
+          left: x,
+          top: y,
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          color: 'white',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontSize: '12px',
+          maxWidth: '280px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}
+      >
+        {hoveredObject.measurement && (
+          <>
+            <div><strong>Valor:</strong> {getMeasurementValue(hoveredObject.measurement).toFixed(2)} {getMeasurementUnit(hoveredObject.measurement)}</div>
+            <div><strong>Ubicación:</strong> ({Number(hoveredObject.measurement.latitude).toFixed(4)}, {Number(hoveredObject.measurement.longitude).toFixed(4)})</div>
+            <div><strong>Fecha:</strong> {formatDate(new Date(hoveredObject.measurement.dateTime), 'dd/MM/yyyy HH:mm')}</div>
+            {hoveredObject.measurement.altitude && <div><strong>Altitud:</strong> {hoveredObject.measurement.altitude}m</div>}
+            {hoveredObject.measurement.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{hoveredObject.measurement.notes}</div>}
+          </>
+        )}
+        {hoveredObject.hexagon && (
+          <>
+            <div><strong>Cluster de Mediciones</strong></div>
+            <div><strong>Cantidad:</strong> {hoveredObject.count || 0} mediciones</div>
+            <div><strong>Valor promedio:</strong> {(hoveredObject.avgRadiation || 0).toFixed(2)} (unidad variable)</div>
+            {(hoveredObject.count || 0) > 1 && (
+              <div><strong>Densidad:</strong> {hoveredObject.count || 0} mediciones en esta área</div>
+            )}
+            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+              🏗️ Altura = cantidad | Color = radiación promedio<br/>
+              💡 Haz zoom para ver mediciones individuales
+            </div>
+          </>
+        )}
+        {hoveredObject.screenGrid && (
+          <>
+            <div><strong>Cuadrícula de Datos</strong></div>
+            <div><strong>Mediciones:</strong> {hoveredObject.count || 0}</div>
+            <div><strong>Valor total:</strong> {(hoveredObject.totalWeight || 0).toFixed(2)} (unidad variable)</div>
+            <div><strong>Valor promedio:</strong> {((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} (unidad variable)</div>
+            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+              📊 Agregación por píxeles de pantalla
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }, [hoveredObject, hoverInfo, getMeasurementValue, getMeasurementUnit]);
+
+  return (
+    <Box sx={{ height: '100vh', display: 'flex' }}>
+
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          zIndex: 1000,
+          pointerEvents: 'none',
+          left: x,
+          top: y,
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          color: 'white',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontSize: '12px',
+          maxWidth: '280px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}
+      >
+        {hoveredObject.measurement && (
+          <>
+            <div><strong>Valor:</strong> {getMeasurementValue(hoveredObject.measurement).toFixed(2)} {getMeasurementUnit(hoveredObject.measurement)}</div>
+            <div><strong>Ubicación:</strong> ({Number(hoveredObject.measurement.latitude).toFixed(4)}, {Number(hoveredObject.measurement.longitude).toFixed(4)})</div>
+            <div><strong>Fecha:</strong> {formatDate(new Date(hoveredObject.measurement.dateTime), 'dd/MM/yyyy HH:mm')}</div>
+            {hoveredObject.measurement.altitude && <div><strong>Altitud:</strong> {hoveredObject.measurement.altitude}m</div>}
+            {hoveredObject.measurement.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{hoveredObject.measurement.notes}</div>}
+          </>
+        )}
+        {hoveredObject.hexagon && (
+          <>
+            <div><strong>Cluster de Mediciones</strong></div>
+            <div><strong>Cantidad:</strong> {hoveredObject.count || 0} mediciones</div>
+            <div><strong>Valor promedio:</strong> {(hoveredObject.avgRadiation || 0).toFixed(2)} (unidad variable)</div>
+            {(hoveredObject.count || 0) > 1 && (
+              <div><strong>Densidad:</strong> {hoveredObject.count || 0} mediciones en esta área</div>
+            )}
+            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+              � Altura = cantidad | Color = radiación promedio<br/>
+              �💡 Haz zoom para ver mediciones individuales
+            </div>
+          </>
+        )}
+        {hoveredObject.screenGrid && (
+          <>
+            <div><strong>Cuadrícula de Datos</strong></div>
+            <div><strong>Mediciones:</strong> {hoveredObject.count || 0}</div>
+            <div><strong>Valor total:</strong> {(hoveredObject.totalWeight || 0).toFixed(2)} (unidad variable)</div>
+            <div><strong>Valor promedio:</strong> {((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} (unidad variable)</div>
+            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+              📊 Agregación por píxeles de pantalla
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Box sx={{ height: '100vh', display: 'flex' }}>
+      {/* Panel lateral izquierdo con filtros */}
+      <Box 
+        sx={{ 
+          width: filtersCollapsed ? 0 : 400,
+          height: '100vh',
+          backgroundColor: '#f8fafc',
+          borderRight: '1px solid #e2e8f0',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          transition: 'width 0.3s ease-in-out'
+        }}
+      >
+        {!filtersCollapsed && (
+          <>
+            {/* Header del panel */}
+            <Box 
+              sx={{ 
+                p: 3,
+                backgroundColor: 'white',
+                borderBottom: '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    color: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}
+                >
+                  <FilterListIcon /> Filtros de Visualización
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Ajusta los parámetros para explorar las mediciones
+                </Typography>
+              </Box>
+              <IconButton 
+                onClick={() => setFiltersCollapsed(true)}
+                size="small"
+                sx={{ color: '#64748b' }}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+            </Box>
+
+            {/* Contenido del panel */}
+            <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+              <FiltersPanelMD3 
+                filters={filters} 
+                onFiltersChange={(newFilters) => onFiltersChange({ ...filters, ...newFilters })}
+                measurements={measurements}
+                filteredMeasurements={filteredMeasurements}
+                visualizationMode={visualizationMode}
+                onVisualizationModeChange={(mode: string) => setVisualizationMode(mode as 'points' | 'hexagon' | 'heatmap' | 'screengrid')}
+                hexagonRadius={hexagonRadius}
+                onHexagonRadiusChange={setHexagonRadius}
+                selectedProject={selectedProject}
+                
+                // Pasar filtros adaptativos
+                adaptiveFilters={adaptiveFilters}
+                onCommonFiltersChange={onCommonFiltersChange}
+                onRadiationFiltersChange={onRadiationFiltersChange}
+                onLightPollutionFiltersChange={onLightPollutionFiltersChange}
+              />
+            </Box>
+          </>
+        )}
+      </Box>
+
+      {/* Botón para expandir filtros cuando están colapsados */}
+      {filtersCollapsed && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 16,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+          }}
+        >
+          <IconButton
+            onClick={() => setFiltersCollapsed(false)}
+            sx={{
+              backgroundColor: 'white',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0',
+              '&:hover': {
+                backgroundColor: '#f8fafc',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+              }
+            }}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Mapa principal */}
+      <Box sx={{ flexGrow: 1, position: 'relative' }}>
+        {loading && (
+          <Box 
+            sx={{ 
+              position: 'absolute', 
+              top: 20, 
+              left: '50%', 
+              transform: 'translateX(-50%)', 
+              zIndex: 1000,
+              backgroundColor: 'rgba(255,255,255,0.95)',
+              borderRadius: 3,
+              p: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <CircularProgress size={20} />
+            <Typography variant="body2">Cargando mediciones...</Typography>
+          </Box>
+        )}
+        
+        <Paper elevation={0} sx={{ height: '100%', borderRadius: 0, overflow: 'hidden' }}>
+          <DeckGL
+            initialViewState={viewState}
+            viewState={viewState}
+            controller={{
+              dragPan: true,
+              dragRotate: true, // Permitir rotación del mapa
+              scrollZoom: true,
+              touchZoom: true,
+              touchRotate: true, // Permitir rotación táctil
+              keyboard: true,
+              doubleClickZoom: true
+            }}
+            layers={layers}
+            onViewStateChange={(evt: any) => {
+              // Permitir control completo de la vista (pitch y bearing libres)
+              setViewState(evt.viewState);
+            }}
+            onLoad={() => console.log('DeckGL loaded successfully')}
+            onError={(error) => console.error('DeckGL error:', error)}
+          >
+            <Map
+              mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+              mapStyle="mapbox://styles/mapbox/light-v10"
+              reuseMaps
+            />
+          </DeckGL>
+          
+          {/* Debug info overlay */}
+          <div style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            zIndex: 1000,
+            fontFamily: 'monospace'
+          }}>
+            <div>Token: {isValidMapboxToken ? '✅' : '❌'}</div>
+            <div>Measurements: {measurements.length}</div>
+            <div>Filtered: {filteredMeasurements.length}</div>
+            <div>Layers: {layers.length}</div>
+          </div>
+          
+          {/* Render tooltip */}
+          {renderTooltip()}
+        </Paper>
+      </Box>
+
+      {/* Alerta si no hay token válido de Mapbox */}
+      {!isValidMapboxToken && (
+        <Alert 
+          severity="warning" 
+          sx={{ 
+            position: 'absolute',
+            bottom: 20,
+            left: filtersCollapsed ? 20 : 420,
+            maxWidth: 400,
+            zIndex: 1000,
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            transition: 'left 0.3s ease-in-out'
+          }}
+        >
+          <Typography variant="body2">
+            <strong>Token de Mapbox no configurado</strong>
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Para mapas detallados, configura REACT_APP_MAPBOX_TOKEN
+          </Typography>
+        </Alert>
+      )}
+    </Box>
+  );
+};
+
+export default MapComponent;

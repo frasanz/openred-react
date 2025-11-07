@@ -1,0 +1,523 @@
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import {
+  User,
+  DeviceModel,
+  Device,
+  Mission,
+  Campaign,
+  Track,
+  Measurement,
+  AuthTokens,
+  LoginCredentials,
+  RegisterData,
+  ApiResponse,
+  DeviceFormData
+} from '../types';
+import { mockMeasurements, mockCampaigns, mockMissions } from './mockData';
+import { MeasurementServiceFactory, MeasurementType } from './measurements';
+
+class ApiService {
+  private api: AxiosInstance;
+  private baseURL: string;
+  private measurementFactory: MeasurementServiceFactory;
+  private loadingPromise: Promise<Measurement[]> | null = null; // Para evitar peticiones duplicadas
+
+  constructor() {
+    // En desarrollo, usar rutas relativas para aprovechar el proxy
+    // En producción, usar la URL completa del backend
+    this.baseURL = process.env.NODE_ENV === 'development' 
+      ? '' // Usar proxy en desarrollo
+      : (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000');
+    
+    this.api = axios.create({
+      baseURL: this.baseURL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Request interceptor to add auth token (excepto para endpoints de auth)
+    this.api.interceptors.request.use(
+      (config) => {
+        // No agregar token para endpoints de autenticación
+        const authEndpoints = ['/dj-rest-auth/login/', '/dj-rest-auth/registration/', '/dj-rest-auth/token/refresh/'];
+        const isAuthEndpoint = authEndpoints.some(endpoint => config.url?.includes(endpoint));
+        
+        if (!isAuthEndpoint) {
+          const token = localStorage.getItem('access_token');
+          if (token) {
+            // Usar "Token" para tokens de Django tradicional, "Bearer" para JWT
+            // Detectar el tipo de token: JWT tiene puntos, token tradicional no
+            const isJWT = token.includes('.') && token.split('.').length === 3;
+            const authHeader = isJWT ? `Bearer ${token}` : `Token ${token}`;
+            config.headers.Authorization = authHeader;
+          }
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor to handle token refresh
+    this.api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          // Solo intentar refresh si tenemos refresh token (JWT)
+          const refreshToken = localStorage.getItem('refresh_token');
+          if (refreshToken) {
+            try {
+              await this.refreshToken();
+              // Actualizar el header de autorización para la request retry
+              const newToken = localStorage.getItem('access_token');
+              if (newToken) {
+                const isJWT = newToken.includes('.') && newToken.split('.').length === 3;
+                originalRequest.headers.Authorization = isJWT ? `Bearer ${newToken}` : `Token ${newToken}`;
+              }
+              return this.api.request(originalRequest);
+            } catch (refreshError) {
+              this.clearTokens();
+              console.warn('Token refresh failed, user needs to login again');
+              return Promise.reject(refreshError);
+            }
+          } else {
+            // Token tradicional de Django - limpiar y requerir re-login
+            this.clearTokens();
+            console.warn('Traditional Django token expired, user needs to login again');
+            return Promise.reject(error);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Inicializar el factory de servicios de medidas
+    this.measurementFactory = new MeasurementServiceFactory(this.api);
+  }
+
+  // Authentication methods
+  async login(credentials: LoginCredentials): Promise<AuthTokens> {
+    try {
+      // Limpiar cualquier token previo que pueda ser inválido
+      this.clearTokens();
+      
+      // Django dj-rest-auth está configurado para usar solo email como método de autenticación
+      const loginData = {
+        email: credentials.email,
+        password: credentials.password
+      };
+
+      const response: AxiosResponse<AuthTokens> = await this.api.post('/dj-rest-auth/login/', loginData);
+      this.setTokens(response.data);
+      return response.data;
+    } catch (error: any) {
+      // Mejorar el manejo de errores
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        throw new Error('No se puede conectar al servidor. Asegúrate de que el backend Django esté ejecutándose en http://localhost:8000');
+      }
+      
+      if (error.response?.status === 400) {
+        const errorData = error.response.data;
+        if (errorData.non_field_errors && errorData.non_field_errors[0].includes('credenciales')) {
+          throw new Error('Credenciales incorrectas o cuenta no verificada. Si es una cuenta nueva, verifica tu email primero.');
+        }
+      }
+
+      if (error.response?.status === 401) {
+        const errorData = error.response.data;
+        if (errorData.code === 'token_not_valid') {
+          throw new Error('Sesión expirada. Por favor, intenta iniciar sesión nuevamente.');
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  async register(userData: RegisterData): Promise<AuthTokens> {
+    try {
+      console.log('Datos enviados en registro:', userData); // Debug log
+      const response: AxiosResponse<AuthTokens> = await this.api.post('/dj-rest-auth/registration/', userData);
+      
+      // Con email verification = mandatory, puede que no se devuelvan tokens inmediatamente
+      // Solo guardar tokens si están presentes en la respuesta
+      if (response.data && (response.data.key || response.data.access)) {
+        this.setTokens(response.data);
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error en registro:', error.response?.data); // Debug log
+      // No limpiar tokens en caso de error de registro
+      throw error;
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.api.post('/dj-rest-auth/logout/');
+    } finally {
+      this.clearTokens();
+    }
+  }
+
+  async refreshToken(): Promise<void> {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    // Si no hay refresh token, es probablemente un token tradicional de Django
+    // que no se refresca, así que limpiar y forzar re-login
+    if (!refreshToken) {
+      this.clearTokens();
+      throw new Error('No refresh token available - using traditional Django tokens');
+    }
+
+    try {
+      // Intentar con el endpoint de dj-rest-auth primero
+      let response: AxiosResponse<{access: string}>;
+      
+      try {
+        response = await this.api.post('/dj-rest-auth/token/refresh/', {
+          refresh: refreshToken
+        });
+      } catch (error: any) {
+        // Si falla con 404, intentar con el endpoint de simplejwt
+        if (error.response?.status === 404) {
+          response = await this.api.post('/api/token/refresh/', {
+            refresh: refreshToken
+          });
+        } else {
+          throw error;
+        }
+      }
+      
+      localStorage.setItem('access_token', response.data.access);
+    } catch (error) {
+      this.clearTokens();
+      throw error;
+    }
+  }
+
+  async getCurrentUser(): Promise<User> {
+    const response: AxiosResponse<User> = await this.api.get('/dj-rest-auth/user/');
+    return response.data;
+  }
+
+  // Device methods
+  async getDeviceModels(): Promise<DeviceModel[]> {
+    const response: AxiosResponse<ApiResponse<DeviceModel>> = await this.api.get('/api/device-models/');
+    return response.data.results || [];
+  }
+
+  async getDevices(): Promise<Device[]> {
+    const response: AxiosResponse<ApiResponse<Device>> = await this.api.get('/api/devices/');
+    return response.data.results || [];
+  }
+
+  async createDevice(deviceData: DeviceFormData): Promise<Device> {
+    const response: AxiosResponse<Device> = await this.api.post('/api/devices/', deviceData);
+    return response.data;
+  }
+
+  async updateDevice(id: number, deviceData: Partial<DeviceFormData>): Promise<Device> {
+    const response: AxiosResponse<Device> = await this.api.patch(`/api/devices/${id}/`, deviceData);
+    return response.data;
+  }
+
+  async deleteDevice(id: number): Promise<void> {
+    await this.api.delete(`/api/devices/${id}/`);
+  }
+
+  // Mission methods
+  async getMissions(): Promise<Mission[]> {
+    try {
+      const response: AxiosResponse<ApiResponse<Mission>> = await this.api.get('/api/missions/');
+      console.log('🔍 getMissions raw response.data:', response.data);
+      
+      // Manejar diferentes formatos de respuesta
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        return response.data.results;
+      }
+      
+      return [];
+    } catch (error) {
+      console.warn('Failed to fetch missions from backend, using mock data:', error);
+      return mockMissions as Mission[];
+    }
+  }
+
+  async getCampaigns(missionId?: number, projectId?: number): Promise<Campaign[]> {
+    try {
+      // Construir URL con query params si se especifica missionId y/o projectId
+      let url = '/api/campaigns/';
+      const params: string[] = [];
+      if (missionId) params.push(`mission=${missionId}`);
+      if (projectId) params.push(`project=${projectId}`);
+      if (params.length > 0) url += `?${params.join('&')}`;
+
+      const response: AxiosResponse<ApiResponse<Campaign>> = await this.api.get(url);
+      console.log('🔍 getCampaigns raw response.data:', response.data);
+
+      // Manejar diferentes formatos de respuesta
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        return response.data.results;
+      }
+
+      return [];
+    } catch (error) {
+      console.warn('Failed to fetch campaigns from backend, using mock data:', error);
+      return mockCampaigns as Campaign[];
+    }
+  }
+
+  // Track management
+  async getTracks(): Promise<Track[]> {
+    const response: AxiosResponse<ApiResponse<Track>> = await this.api.get('/api/tracks/');
+    console.log('🔍 getTracks response:', response.data);
+    
+    // Manejar diferentes formatos de respuesta
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data.results && Array.isArray(response.data.results)) {
+      return response.data.results;
+    }
+    
+    return [];
+  }
+
+  async getTrack(id: number): Promise<Track> {
+    const response: AxiosResponse<Track> = await this.api.get(`/api/tracks/${id}/`);
+    return response.data;
+  }
+
+  async createTrack(formData: FormData): Promise<Track> {
+    const response: AxiosResponse<Track> = await this.api.post('/api/tracks/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async updateTrack(id: number, data: Partial<Track>): Promise<Track> {
+    const response: AxiosResponse<Track> = await this.api.patch(`/api/tracks/${id}/`, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data;
+  }
+
+  async deleteTrack(id: number): Promise<void> {
+    await this.api.delete(`/api/tracks/${id}/`);
+  }
+
+  // Measurement methods
+  
+  // Getter para acceder a los servicios de medidas de forma específica
+  get measurements() {
+    return {
+      radiation: this.measurementFactory.getService(MeasurementType.RADIATION),
+      lightPollution: this.measurementFactory.getService(MeasurementType.LIGHT_POLLUTION)
+    };
+  }
+
+  // Método legacy para retrocompatibilidad - usa radiación por defecto
+  async getMeasurements(params?: {
+    project?: number;
+    start_date?: string;
+    end_date?: string;
+    min_radiation?: number;
+    max_radiation?: number;
+    campaign?: number;
+    track?: number;
+    mission?: number;
+  }): Promise<Measurement[]> {
+    try {
+      // Por defecto usar el servicio de radiación
+      return await this.measurements.radiation.getMeasurements(params);
+    } catch (error) {
+      console.warn('Failed to fetch measurements from backend, using mock data:', error);
+      // Return mock data as fallback
+      return mockMeasurements;
+    }
+  }
+
+  async createMeasurement(measurementData: Omit<Measurement, 'id' | 'measurement_id'>): Promise<Measurement> {
+    // Determinar el tipo de medida basado en los campos presentes
+    const isRadiation = 'dose_rate' in measurementData;
+    const service = isRadiation 
+      ? this.measurements.radiation 
+      : this.measurements.lightPollution;
+    
+    return service.createMeasurement(measurementData as any);
+  }
+
+  // Métodos de carga progresiva legacy - mantienen compatibilidad con código existente
+  async getMeasurementsCount(projectId?: number): Promise<number> {
+    // Por defecto usar radiación
+    return this.measurements.radiation.getMeasurementsCount(projectId);
+  }
+
+  async getMeasurementsWithProgress(
+    onProgress: (loaded: number, total: number) => void,
+    options: {
+      pageSize?: number;
+      maxConcurrent?: number;
+      useParallel?: boolean;
+      autoOptimize?: boolean;
+      projectId?: number;
+      knownTotal?: number;
+      measurementType?: 'radiation' | 'light_pollution'; // Nuevo parámetro opcional
+    } = {}
+  ): Promise<Measurement[]> {
+    // Determinar qué servicio usar
+    const measurementType = options.measurementType || 'radiation';
+    const service = measurementType === 'radiation' 
+      ? this.measurements.radiation 
+      : this.measurements.lightPollution;
+
+    return service.getMeasurementsWithProgress(onProgress, options);
+  }
+
+  // Métodos para agregaciones H3
+  async getH3Aggregation(
+    params?: {
+      resolution?: number;
+      project?: number;
+      start_date?: string;
+      end_date?: string;
+      measurementType?: 'radiation' | 'light_pollution';
+      mission?: number;
+      campaign?: number;
+    }
+  ): Promise<{ hexagons: any[], resolution?: number, totalMeasurements?: number }> {
+    const measurementType = params?.measurementType || 'radiation';
+    const service = measurementType === 'radiation' 
+      ? this.measurements.radiation 
+      : this.measurements.lightPollution;
+
+    return service.getH3Aggregation(params);
+  }
+
+  // Profile management
+  async updateProfile(data: { email: string }): Promise<User> {
+    const response: AxiosResponse<User> = await this.api.patch('/api/profile/', data);
+    return response.data;
+  }
+
+  async getUserStats(): Promise<any> {
+    const response: AxiosResponse<any> = await this.api.get('/api/users/me/stats/');
+    return response.data;
+  }
+
+  // Campaign management
+  async createCampaign(data: any): Promise<Campaign> {
+    const response: AxiosResponse<Campaign> = await this.api.post('/api/campaigns/', data);
+    return response.data;
+  }
+
+  async updateCampaign(id: number, data: any): Promise<Campaign> {
+    const response: AxiosResponse<Campaign> = await this.api.patch(`/api/campaigns/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteCampaign(id: number): Promise<void> {
+    await this.api.delete(`/api/campaigns/${id}/`);
+  }
+
+  // Mission management
+  async createMission(data: any): Promise<Mission> {
+    const response: AxiosResponse<Mission> = await this.api.post('/api/missions/', data);
+    return response.data;
+  }
+
+  async updateMission(id: number, data: any): Promise<Mission> {
+    const response: AxiosResponse<Mission> = await this.api.patch(`/api/missions/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteMission(id: number): Promise<void> {
+    await this.api.delete(`/api/missions/${id}/`);
+  }
+
+  // Password reset methods
+  async requestPasswordReset(email: string): Promise<void> {
+    const response: AxiosResponse<void> = await this.api.post('/dj-rest-auth/password/reset/', {
+      email: email
+    });
+    return response.data;
+  }
+
+  async confirmPasswordReset(uid: string, token: string, newPassword: string): Promise<void> {
+    const response: AxiosResponse<void> = await this.api.post('/dj-rest-auth/password/reset/confirm/', {
+      uid: uid,
+      token: token,
+      new_password1: newPassword,
+      new_password2: newPassword
+    });
+    return response.data;
+  }
+
+  // Email verification
+  async verifyEmail(key: string): Promise<void> {
+    const response: AxiosResponse<void> = await this.api.post('/dj-rest-auth/registration/verify-email/', {
+      key: key
+    });
+    return response.data;
+  }
+
+  // Utility methods
+  private setTokens(tokens: AuthTokens): void {
+    // Manejar tanto formato JWT como tokens tradicionales de Django
+    if (tokens.key) {
+      // Formato tradicional de Django dj-rest-auth
+      localStorage.setItem('access_token', tokens.key);
+    } else if (tokens.access) {
+      // Formato JWT
+      localStorage.setItem('access_token', tokens.access);
+      if (tokens.refresh) {
+        localStorage.setItem('refresh_token', tokens.refresh);
+      }
+    }
+  }
+
+  private clearTokens(): void {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  }
+
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem('access_token');
+  }
+
+  // Verificar si los tokens son válidos haciendo una request al endpoint de usuario
+  async validateTokens(): Promise<boolean> {
+    if (!this.isAuthenticated()) {
+      return false;
+    }
+
+    try {
+      await this.getCurrentUser();
+      return true;
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Token inválido, limpiar
+        this.clearTokens();
+        return false;
+      }
+      // Otros errores no relacionados con autenticación
+      return true;
+    }
+  }
+}
+
+export const apiService = new ApiService();
+export default apiService;
