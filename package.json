@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "React frontend for OpenRed gamma radiation measurement platform",
   "private": true,
-  "homepage": ".",
+  "homepage": "/",
   "author": {
     "name": "OpenRed Team",
     "email": "frasanz@ibercivis.es"
