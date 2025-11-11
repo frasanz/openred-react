@@ -2,8 +2,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { H3HexagonLayer } from '@deck.gl/geo-layers';
 import { ScatterplotLayer } from '@deck.gl/layers';
-import { Map } from 'react-map-gl';
+import { Map, Source, Layer } from 'react-map-gl';
 import './MapComponent.css';
+import { getRadiationColor, RADIATION_LEGEND } from '../utils/radiationColors';
 import {
   Box,
   Paper,
@@ -13,12 +14,15 @@ import {
   IconButton,
   useMediaQuery,
   useTheme,
+  Drawer,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Measurement, Campaign, MapFilters, Project, AdaptiveFilters, CommonFilters, RadiationFilters, LightPollutionFilters } from '../types';
-import FiltersPanelMD3 from './FiltersPanelMD3';
+import FiltersPanel from './FiltersPanel';
 import { Mission } from '../types';
 
 // Helper function to format dates without date-fns
@@ -58,7 +62,7 @@ const INITIAL_VIEW_STATE = {
   longitude: -5.5,  // Centro de España (incluyendo Canarias)
   latitude: 36.5,   // Centro de España (incluyendo Canarias) 
   zoom: 5.5,        // Zoom para mostrar toda España y Canarias
-  pitch: 0,
+  pitch: 45,        // Inclinación de la cámara (0-60)
   bearing: 0
 };
 
@@ -114,6 +118,12 @@ interface MapComponentProps {
   isUsingH3?: boolean;
   onZoomChange?: (zoom: number) => void;
   totalMeasurements?: number;
+  statistics?: {
+    global_avg: number;
+    global_min: number;
+    global_max: number;
+    global_std?: number;
+  };
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -141,6 +151,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   isUsingH3 = false,
   onZoomChange,
   totalMeasurements,
+  statistics,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -151,6 +162,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
   // Por defecto colapsado en móvil, expandido en desktop
   const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(isMobile);
+  // Estado para la capa MARNA
+  const [showMarnaLayer, setShowMarnaLayer] = useState<boolean>(false);
   
   // Ref para guardar el último nivel de zoom notificado al padre
   const lastNotifiedZoomLevel = React.useRef<number>(Math.round(INITIAL_VIEW_STATE.zoom));
@@ -176,63 +189,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
       return measurement.brightness_unit;
     }
     return '';
-  }, []);
-
-  const getRadiationColor = useCallback((value: number): [number, number, number] => {
-    // value ya viene en µSv/h desde el backend (dividido por 100)
-    // Escala de colores:
-    // 0-0.10 µSv/h: Verde (normal/bajo)
-    // 0.10-0.20 µSv/h: Amarillo a Naranja (moderado a elevado)
-    // 0.20-0.50 µSv/h: Rojo (alto)
-    // 0.50+ µSv/h: Morado (muy alto)
-    
-    if (value < 0.10) {
-      // Verde (0-0.10 µSv/h) - verde más intenso a medida que sube
-      const t = value / 0.10;
-      const red = 0;
-      const green = Math.round(180 + t * 75); // 180 a 255
-      const blue = 0;
-      return [red, green, blue];
-    } else if (value < 0.20) {
-      // Verde a Amarillo a Naranja (0.10-0.20 µSv/h)
-      const t = (value - 0.10) / 0.10;
-      if (t < 0.5) {
-        // Verde a Amarillo (0.10-0.15 µSv/h)
-        const t2 = t * 2;
-        const red = Math.round(0 + t2 * 255);
-        const green = 255;
-        const blue = 0;
-        return [red, green, blue];
-      } else {
-        // Amarillo a Naranja (0.15-0.20 µSv/h)
-        const t2 = (t - 0.5) * 2;
-        const red = 255;
-        const green = Math.round(255 - t2 * 90); // 255 a 165
-        const blue = 0;
-        return [red, green, blue];
-      }
-    } else if (value < 0.50) {
-      // Naranja a Rojo a Morado (0.20-0.50 µSv/h)
-      const t = (value - 0.20) / 0.30;
-      if (t < 0.3) {
-        // Naranja a Rojo (0.20-0.29 µSv/h)
-        const t2 = t / 0.3;
-        const red = 255;
-        const green = Math.round(165 - t2 * 165); // 165 a 0
-        const blue = 0;
-        return [red, green, blue];
-      } else {
-        // Rojo a Morado (0.29-0.50 µSv/h)
-        const t2 = (t - 0.3) / 0.7;
-        const red = Math.round(255 - t2 * 105); // 255 a 150
-        const green = 0;
-        const blue = Math.round(0 + t2 * 200); // 0 a 200
-        return [red, green, blue];
-      }
-    } else {
-      // Morado intenso (0.50+ µSv/h)
-      return [150, 0, 200];
-    }
   }, []);
 
   const handleFiltersToggle = useCallback((collapsed: boolean) => {
@@ -343,158 +299,233 @@ const MapComponent: React.FC<MapComponentProps> = ({
     const { x, y } = hoverInfo;
 
     return (
-      <div
-        style={{
+      <Paper
+        elevation={3}
+        sx={{
           position: 'absolute',
           zIndex: 1000,
           pointerEvents: 'none',
           left: x,
           top: y,
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-          color: 'white',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           padding: '12px 16px',
-          borderRadius: '8px',
-          fontSize: '12px',
+          borderRadius: 2,
           maxWidth: '280px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
         }}
       >
         {hoveredObject.measurement && (
           <>
-            <div><strong>Medición Individual</strong></div>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Medición Individual
+            </Typography>
             {'dose_rate' in hoveredObject.measurement && hoveredObject.measurement.dose_rate !== undefined ? (
-              <div><strong>Radiación:</strong> {hoveredObject.measurement.dose_rate.toFixed(2)} µSv/h</div>
+              <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+                ☢️ {hoveredObject.measurement.dose_rate.toFixed(2)} µSv/h
+              </Typography>
             ) : (
-              <div><strong>Valor:</strong> {getMeasurementValue(hoveredObject.measurement).toFixed(2)} {getMeasurementUnit(hoveredObject.measurement)}</div>
+              <Typography variant="caption" component="div">
+                {getMeasurementValue(hoveredObject.measurement).toFixed(2)} {getMeasurementUnit(hoveredObject.measurement)}
+              </Typography>
             )}
-            <div><strong>Ubicación:</strong> ({Number(hoveredObject.measurement.latitude).toFixed(4)}, {Number(hoveredObject.measurement.longitude).toFixed(4)})</div>
-            <div><strong>Fecha:</strong> {formatDate(new Date(hoveredObject.measurement.dateTime), 'dd/MM/yyyy HH:mm')}</div>
-            {hoveredObject.measurement.altitude && <div><strong>Altitud:</strong> {hoveredObject.measurement.altitude}m</div>}
-            {hoveredObject.measurement.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{hoveredObject.measurement.notes}</div>}
+            {'speed' in hoveredObject.measurement && hoveredObject.measurement.speed !== undefined && hoveredObject.measurement.speed !== null && (
+              <Typography variant="caption" component="div" sx={{ color: 'primary.main' }}>
+                🚀 {(hoveredObject.measurement.speed * 3.6).toFixed(2)} km/h
+              </Typography>
+            )}
+            {'count_rate' in hoveredObject.measurement && hoveredObject.measurement.count_rate && (
+              <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
+                📊 {hoveredObject.measurement.count_rate.toFixed(2)} CPM
+              </Typography>
+            )}
+            <Typography variant="caption" component="div">
+              📍 Lat: {Number(hoveredObject.measurement.latitude).toFixed(6)}
+            </Typography>
+            <Typography variant="caption" component="div">
+              📍 Lng: {Number(hoveredObject.measurement.longitude).toFixed(6)}
+            </Typography>
+            {hoveredObject.measurement.altitude && (
+              <Typography variant="caption" component="div">
+                ⛰️ {hoveredObject.measurement.altitude}m
+              </Typography>
+            )}
+            <Typography variant="caption" component="div" color="text.secondary">
+              🕐 {formatDate(new Date(hoveredObject.measurement.dateTime), 'dd/MM/yyyy HH:mm')}
+            </Typography>
+            
+            {/* Datos del tiempo */}
+            {hoveredObject.measurement.weather_cache && (
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                  ☁️ Condiciones Meteorológicas
+                </Typography>
+                {hoveredObject.measurement.weather_cache.temperature != null && (
+                  <Typography variant="caption" component="div">
+                    🌡️ {hoveredObject.measurement.weather_cache.temperature.toFixed(1)}°C
+                  </Typography>
+                )}
+                {hoveredObject.measurement.weather_cache.humidity != null && (
+                  <Typography variant="caption" component="div">
+                    💧 Humedad: {hoveredObject.measurement.weather_cache.humidity.toFixed(0)}%
+                  </Typography>
+                )}
+                {hoveredObject.measurement.weather_cache.pressure != null && (
+                  <Typography variant="caption" component="div">
+                    🔽 Presión: {hoveredObject.measurement.weather_cache.pressure.toFixed(1)} hPa
+                  </Typography>
+                )}
+                {hoveredObject.measurement.weather_cache.wind_speed != null && hoveredObject.measurement.weather_cache.wind_direction != null && (
+                  <Typography variant="caption" component="div">
+                    💨 Viento: {hoveredObject.measurement.weather_cache.wind_speed.toFixed(1)} m/s ({hoveredObject.measurement.weather_cache.wind_direction.toFixed(0)}°)
+                  </Typography>
+                )}
+                {hoveredObject.measurement.weather_cache.cloud_cover != null && (
+                  <Typography variant="caption" component="div">
+                    ☁️ Nubosidad: {hoveredObject.measurement.weather_cache.cloud_cover.toFixed(0)}%
+                  </Typography>
+                )}
+              </Box>
+            )}
+            
+            {hoveredObject.measurement.notes && (
+              <Typography variant="caption" component="div" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                {hoveredObject.measurement.notes}
+              </Typography>
+            )}
           </>
         )}
         {hoveredObject.hexagon && (
           <>
-            <div><strong>Cluster de Mediciones</strong></div>
-            <div><strong>Cantidad:</strong> {hoveredObject.count || 0} mediciones</div>
-            <div><strong>Radiación promedio:</strong> {(hoveredObject.avgRadiation || 0).toFixed(2)} µSv/h</div>
-            {(hoveredObject.count || 0) > 1 && (
-              <div><strong>Densidad:</strong> {hoveredObject.count || 0} mediciones en esta área</div>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Cluster de Mediciones
+            </Typography>
+            <Typography variant="caption" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+              📊 {hoveredObject.count || 0} mediciones
+            </Typography>
+            <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+              ☢️ Promedio: {(hoveredObject.avgRadiation || 0).toFixed(3)} µSv/h
+            </Typography>
+            {hoveredObject.hexagon.min_value !== undefined && (
+              <Typography variant="caption" component="div" sx={{ color: 'success.main' }}>
+                📉 Mínimo: {hoveredObject.hexagon.min_value.toFixed(3)} µSv/h
+              </Typography>
             )}
-            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
-              🏗️ Altura = cantidad | Color = radiación promedio<br/>
+            {hoveredObject.hexagon.max_value !== undefined && (
+              <Typography variant="caption" component="div" sx={{ color: 'error.main' }}>
+                📈 Máximo: {hoveredObject.hexagon.max_value.toFixed(3)} µSv/h
+              </Typography>
+            )}
+            {hoveredObject.hexagon.std_value !== undefined && (
+              <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
+                📊 Desv. estándar: {hoveredObject.hexagon.std_value.toFixed(3)} µSv/h
+              </Typography>
+            )}
+            <Typography variant="caption" component="div" sx={{ mt: 1, fontSize: '11px', color: 'text.secondary', fontStyle: 'italic' }}>
               💡 Haz zoom (≥16) para ver mediciones individuales
-            </div>
+            </Typography>
           </>
         )}
         {hoveredObject.screenGrid && (
           <>
-            <div><strong>Cuadrícula de Datos</strong></div>
-            <div><strong>Mediciones:</strong> {hoveredObject.count || 0}</div>
-            <div><strong>Valor total:</strong> {(hoveredObject.totalWeight || 0).toFixed(2)} (unidad variable)</div>
-            <div><strong>Valor promedio:</strong> {((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} (unidad variable)</div>
-            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Cuadrícula de Datos
+            </Typography>
+            <Typography variant="caption" component="div">
+              <strong>Mediciones:</strong> {hoveredObject.count || 0}
+            </Typography>
+            <Typography variant="caption" component="div">
+              <strong>Valor total:</strong> {(hoveredObject.totalWeight || 0).toFixed(2)} (unidad variable)
+            </Typography>
+            <Typography variant="caption" component="div">
+              <strong>Valor promedio:</strong> {((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} (unidad variable)
+            </Typography>
+            <Typography variant="caption" component="div" sx={{ mt: 1, fontSize: '11px', opacity: 0.8 }}>
               📊 Agregación por píxeles de pantalla
-            </div>
+            </Typography>
           </>
         )}
-      </div>
+      </Paper>
     );
   }, [hoveredObject, hoverInfo, getMeasurementValue, getMeasurementUnit]);
 
   return (
     <Box sx={{ 
       height: '100vh', 
-      display: 'flex',
-      flexDirection: 'row', // Siempre en fila (lateral)
+      width: '100%',
       position: 'relative'
     }}>
-      {/* Backdrop en móvil cuando el panel está abierto */}
-      {!filtersCollapsed && isMobile && (
-        <Box
-          onClick={() => setFiltersCollapsed(true)}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1099,
-            transition: 'opacity 0.3s ease-in-out'
-          }}
-        />
-      )}
-
-      {/* Panel lateral izquierdo con filtros */}
-      <Box 
-        sx={{ 
-          width: filtersCollapsed ? 0 : { xs: '85vw', md: 400 }, // En móvil ocupa 85% del ancho
-          height: '100vh',
-          backgroundColor: '#f8fafc',
-          borderRight: '1px solid #e2e8f0',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          transition: 'width 0.3s ease-in-out',
-          position: { xs: 'absolute', md: 'relative' }, // Flotante en móvil, relativo en desktop
-          zIndex: { xs: 1100, md: 'auto' }, // Alto z-index en móvil para flotar sobre el mapa
-          boxShadow: { xs: filtersCollapsed ? 'none' : '2px 0 8px rgba(0,0,0,0.15)', md: 'none' }
+      {/* Drawer - Panel lateral con filtros */}
+      <Drawer
+        anchor="left"
+        open={!filtersCollapsed}
+        onClose={() => setFiltersCollapsed(true)}
+        hideBackdrop
+        ModalProps={{
+          keepMounted: true,
+          style: { pointerEvents: 'none' },
+        }}
+        PaperProps={{
+          style: { pointerEvents: 'auto' },
+        }}
+        sx={{
+          zIndex: 1100,
+          '& .MuiDrawer-paper': {
+            width: { xs: '85vw', md: 400 },
+            boxSizing: 'border-box',
+            borderRight: '1px solid #e2e8f0',
+            backgroundColor: '#f8fafc',
+            top: 64,
+            height: 'calc(100vh - 64px)',
+          },
         }}
       >
-        {!filtersCollapsed && (
-          <>
-            {/* Header del panel con botón para colapsar */}
-            <Box 
-              sx={{ 
-                p: 2,
-                backgroundColor: 'white',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end'
-              }}
-            >
-              <IconButton 
-                onClick={() => setFiltersCollapsed(true)}
-                size="small"
-                sx={{ 
-                  color: '#64748b',
-                  display: { xs: 'none', md: 'block' } // Ocultar en móvil
-                }}
-              >
-                <ChevronLeftIcon />
-              </IconButton>
-            </Box>
+        {/* Header del panel con botón para colapsar */}
+        <Box 
+          sx={{ 
+            p: 2,
+            backgroundColor: 'white',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end'
+          }}
+        >
+          <IconButton 
+            onClick={() => setFiltersCollapsed(true)}
+            size="small"
+            sx={{ 
+              color: '#64748b',
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </Box>
 
-            {/* Contenido del panel */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
-              <FiltersPanelMD3 
-                measurements={measurements}
-                filteredMeasurements={filteredMeasurements}
-                selectedProject={selectedProject}
-                onProjectChange={onProjectChange}
-                
-                // Pasar filtros adaptativos (solo rango temporal)
-                adaptiveFilters={adaptiveFilters}
-                onCommonFiltersChange={onCommonFiltersChange}
-                
-                // Pasar filtros de misión y campaña
-                missions={missions}
-                campaigns={campaigns}
-                selectedMission={selectedMission}
-                selectedCampaign={selectedCampaign}
-                loadingCampaigns={loadingCampaigns}
-                onMissionChange={onMissionChange}
-                onCampaignChange={onCampaignChange}
-                
-                // Pasar total de mediciones del servidor
-                totalMeasurements={totalMeasurements}
-              />
-            </Box>
-          </>
-        )}
-      </Box>
+        {/* Contenido del panel */}
+        <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+          <FiltersPanel 
+            measurements={measurements}
+            filteredMeasurements={filteredMeasurements}
+            selectedProject={selectedProject}
+            onProjectChange={onProjectChange}
+            
+            // Pasar filtros adaptativos (solo rango temporal)
+            adaptiveFilters={adaptiveFilters}
+            onCommonFiltersChange={onCommonFiltersChange}
+            
+            // Pasar filtros de misión y campaña
+            missions={missions}
+            campaigns={campaigns}
+            selectedMission={selectedMission}
+            selectedCampaign={selectedCampaign}
+            loadingCampaigns={loadingCampaigns}
+            onMissionChange={onMissionChange}
+            onCampaignChange={onCampaignChange}
+            
+            // Pasar total de mediciones del servidor
+            totalMeasurements={totalMeasurements}
+          />
+        </Box>
+      </Drawer>
 
       {/* Botón para expandir filtros cuando están colapsados */}
       {filtersCollapsed && (
@@ -524,12 +555,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
         </Box>
       )}
 
-      {/* Mapa principal */}
+      {/* Mapa principal - Siempre ocupa toda la pantalla */}
       <Box sx={{ 
-        flexGrow: 1, 
-        position: 'relative',
-        height: '100vh',
-        width: '100%'
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+        top: 0,
+        left: 0,
       }}>
         {loading && (
           <Box 
@@ -591,7 +623,27 @@ const MapComponent: React.FC<MapComponentProps> = ({
               mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
               mapStyle="mapbox://styles/mapbox/light-v10"
               reuseMaps
-            />
+            >
+              {showMarnaLayer && (
+                <>
+                  <Source
+                    id="marna-tiles"
+                    type="raster"
+                    tiles={['https://map.open-red.es/marna_tiles/{z}/{x}/{y}.png']}
+                    tileSize={256}
+                    scheme="tms"
+                  />
+                  <Layer
+                    id="marna-layer"
+                    type="raster"
+                    source="marna-tiles"
+                    paint={{
+                      'raster-opacity': 0.7
+                    }}
+                  />
+                </>
+              )}
+            </Map>
           </DeckGL>
           
           {/* Debug info overlay */}
@@ -626,10 +678,82 @@ const MapComponent: React.FC<MapComponentProps> = ({
             <div>Layers: {layers.length}</div>
           </div>
           
-          {/* Leyenda de colores */}
+          {/* Control para capa MARNA - Arriba a la derecha */}
           <Box sx={{
             position: 'absolute',
             top: { xs: 10, md: 20 },
+            right: { xs: 10, md: 20 },
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            padding: { xs: '12px', md: '16px' },
+            borderRadius: '8px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            minWidth: { xs: '140px', md: '180px' }
+          }}>
+            <FormControlLabel
+              sx={{ 
+                margin: 0,
+                '& .MuiFormControlLabel-label': {
+                  paddingLeft: '8px'
+                }
+              }}
+              control={
+                <Checkbox
+                  checked={showMarnaLayer}
+                  onChange={(e) => setShowMarnaLayer(e.target.checked)}
+                  size="small"
+                  sx={{ padding: 0 }}
+                />
+              }
+              label={
+                <Typography variant="caption" sx={{ fontSize: { xs: '10px', md: '12px' }, fontWeight: 'bold', color: '#1a202c' }}>
+                  Capa MARNA
+                </Typography>
+              }
+            />
+          </Box>
+          
+          {/* Panel de Estadísticas Globales - Solo visible cuando se usan hexágonos H3 */}
+          {isUsingH3 && statistics && (
+            <Box sx={{
+              position: 'absolute',
+              top: { xs: 78, md: 96 },
+              right: { xs: 10, md: 20 },
+              background: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(10px)',
+              padding: { xs: '12px', md: '16px' },
+              borderRadius: '8px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              minWidth: { xs: '140px', md: '180px' }
+            }}>
+              <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 1, color: '#1a202c', fontSize: { xs: '11px', md: '12px' } }}>
+                Tasa de dosis:
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+                <Typography variant="caption" component="div" sx={{ fontSize: '11px' }}>
+                  Media: {statistics.global_avg.toFixed(3)} µSv/h
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ fontSize: '11px' }}>
+                  Máxima: {statistics.global_max.toFixed(3)} µSv/h
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ fontSize: '11px' }}>
+                  Mínima: {statistics.global_min.toFixed(3)} µSv/h
+                </Typography>
+                {statistics.global_std !== undefined && (
+                  <Typography variant="caption" component="div" sx={{ fontSize: '11px' }}>
+                    Desv. std: {statistics.global_std.toFixed(3)} µSv/h
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          )}
+          
+          {/* Leyenda de colores */}
+          <Box sx={{
+            position: 'absolute',
+            top: isUsingH3 && statistics ? { xs: 208, md: 242 } : { xs: 78, md: 96 },
             right: { xs: 10, md: 20 },
             background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(10px)',
@@ -643,66 +767,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
               Tasa de dosis (µSv/h)
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  background: 'linear-gradient(to right, rgb(0,180,0), rgb(0,255,0))',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0-0.10 (Bajo)</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  background: 'linear-gradient(to right, rgb(0,255,0), rgb(255,255,0))',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0.10-0.15</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  background: 'linear-gradient(to right, rgb(255,255,0), rgb(255,165,0))',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0.15-0.20</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  background: 'linear-gradient(to right, rgb(255,165,0), rgb(255,0,0))',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0.20-0.29</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  background: 'linear-gradient(to right, rgb(255,0,0), rgb(150,0,200))',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0.29-0.50</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  backgroundColor: 'rgb(150,0,200)',
-                  borderRadius: '2px',
-                  border: '1px solid rgba(0,0,0,0.1)'
-                }} />
-                <Typography variant="caption" sx={{ fontSize: '11px' }}>0.50+ (Alto)</Typography>
-              </Box>
+              {RADIATION_LEGEND.map((item, index) => (
+                <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 24, 
+                    height: 16, 
+                    background: item.gradient,
+                    borderRadius: '2px',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }} />
+                  <Typography variant="caption" sx={{ fontSize: '11px' }}>{item.label}</Typography>
+                </Box>
+              ))}
             </Box>
           </Box>
           

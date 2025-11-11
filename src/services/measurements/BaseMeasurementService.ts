@@ -265,7 +265,17 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
     mission?: number;
     campaign?: number;
     [key: string]: any;
-  }): Promise<{ hexagons: any[], resolution?: number, totalMeasurements?: number }> {
+  }): Promise<{ 
+    hexagons: any[], 
+    resolution?: number, 
+    totalMeasurements?: number,
+    statistics?: {
+      global_avg: number;
+      global_min: number;
+      global_max: number;
+      global_std?: number;
+    }
+  }> {
     try {
       const endpoint = this.getBaseEndpoint().replace(/\/$/, '') + '/h3-aggregation/';
       const response = await this.api.get(endpoint, { params });
@@ -274,11 +284,12 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
       if (Array.isArray(response.data)) {
         return { hexagons: response.data };
       } else if (response.data.hexagons && Array.isArray(response.data.hexagons)) {
-        // El backend devuelve { hexagons: [...], resolution: 5, total_hexagons: N, total_measurements: M }
+        // El backend devuelve { hexagons: [...], resolution: 5, total_hexagons: N, total_measurements: M, statistics: {...} }
         return { 
           hexagons: response.data.hexagons,
           resolution: response.data.resolution,
-          totalMeasurements: response.data.total_measurements
+          totalMeasurements: response.data.total_measurements,
+          statistics: response.data.statistics
         };
       } else if (response.data.results && Array.isArray(response.data.results)) {
         return { hexagons: response.data.results };

@@ -4,8 +4,18 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MdFilledTextField, MdFilledButton, MdCircularProgress } from '../components/MaterialComponents';
-import '../styles/auth.css';
+import { 
+  TextField, 
+  Button, 
+  CircularProgress,
+  Box,
+  Container,
+  Paper,
+  Typography,
+  Alert,
+  Link as MuiLink
+} from '@mui/material';
+import WarningIcon from '@mui/icons-material/Warning';
 
 interface RegisterFormData {
   email: string;
@@ -90,93 +100,144 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="register-page">
-      <div className="register-container">
-        <div className="register-card">
-          <div className="card-content">
-            <h1 className="register-title">Crear Cuenta</h1>
-            
-            <p className="register-subtitle">
-              Únete a la comunidad OpenRed y contribuye a la ciencia ciudadana
-            </p>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#f5f5f5',
+        py: 3,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            bgcolor: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Typography 
+            variant="h4" 
+            component="h1"
+            sx={{ 
+              mb: 1,
+              fontWeight: 400,
+              fontSize: 32,
+            }}
+          >
+            Crear Cuenta
+          </Typography>
+          
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{ mb: 3 }}
+          >
+            Únete a la comunidad OpenRed y contribuye a la ciencia ciudadana
+          </Typography>
 
-            {(error || submitError) && (
-              <div className="error-alert">
-                <span className="error-icon">⚠️</span>
-                <div className="error-content">
-                  <span>{error || submitError}</span>
-                  {Object.keys(fieldErrors).length > 0 && (
-                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                      {Object.entries(fieldErrors).map(([field, fieldError]) => (
-                        <li key={field}>
-                          <strong>{field === 'email' ? 'Email' :
-                                   field === 'password1' ? 'Contraseña' :
-                                   field === 'password2' ? 'Confirmar contraseña' :
-                                   field}:</strong> {fieldError}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit(onSubmit)} className="register-form">
-              <MdFilledTextField
-                {...register('email')}
-                label="Correo Electrónico"
-                type="email"
-                required
-                error={!!errors.email || !!fieldErrors.email}
-                error-text={errors.email?.message || fieldErrors.email}
-                className="form-field"
-              />
-
-              <MdFilledTextField
-                {...register('password1')}
-                label="Contraseña"
-                type="password"
-                required
-                error={!!errors.password1 || !!fieldErrors.password1}
-                error-text={errors.password1?.message || fieldErrors.password1}
-                className="form-field"
-              />
-
-              <MdFilledTextField
-                {...register('password2')}
-                label="Confirmar Contraseña"
-                type="password"
-                required
-                error={!!errors.password2 || !!fieldErrors.password2}
-                error-text={errors.password2?.message || fieldErrors.password2}
-                className="form-field"
-              />
-
-              <MdFilledButton
-                type="submit"
-                disabled={loading}
-                className="submit-button"
-              >
-                {loading ? (
-                  <MdCircularProgress indeterminate />
-                ) : (
-                  'Crear Cuenta'
+          {(error || submitError) && (
+            <Alert 
+              severity="error" 
+              icon={<WarningIcon />}
+              sx={{ mb: 3 }}
+            >
+              <Box>
+                {error || submitError}
+                {Object.keys(fieldErrors).length > 0 && (
+                  <Box component="ul" sx={{ m: '8px 0 0 0', pl: 2 }}>
+                    {Object.entries(fieldErrors).map(([field, fieldError]) => (
+                      <li key={field}>
+                        <strong>
+                          {field === 'email' ? 'Email' :
+                           field === 'password1' ? 'Contraseña' :
+                           field === 'password2' ? 'Confirmar contraseña' :
+                           field}:
+                        </strong> {fieldError}
+                      </li>
+                    ))}
+                  </Box>
                 )}
-              </MdFilledButton>
+              </Box>
+            </Alert>
+          )}
 
-              <div className="login-link">
-                <p>
-                  ¿Ya tienes cuenta?{' '}
-                  <Link to="/login" className="link">
-                    Inicia sesión aquí
-                  </Link>
-                </p>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+          <Box 
+            component="form" 
+            onSubmit={handleSubmit(onSubmit)}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <TextField
+              {...register('email')}
+              label="Correo Electrónico"
+              type="email"
+              required
+              error={!!errors.email || !!fieldErrors.email}
+              helperText={errors.email?.message || fieldErrors.email}
+              variant="filled"
+              fullWidth
+            />
+
+            <TextField
+              {...register('password1')}
+              label="Contraseña"
+              type="password"
+              required
+              error={!!errors.password1 || !!fieldErrors.password1}
+              helperText={errors.password1?.message || fieldErrors.password1}
+              variant="filled"
+              fullWidth
+            />
+
+            <TextField
+              {...register('password2')}
+              label="Confirmar Contraseña"
+              type="password"
+              required
+              error={!!errors.password2 || !!fieldErrors.password2}
+              helperText={errors.password2?.message || fieldErrors.password2}
+              variant="filled"
+              fullWidth
+            />
+
+            <Button
+              type="submit"
+              disabled={loading}
+              variant="contained"
+              fullWidth
+              sx={{ mt: 1, py: 1.5 }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Crear Cuenta'
+              )}
+            </Button>
+
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                ¿Ya tienes cuenta?{' '}
+                <MuiLink
+                  component={Link}
+                  to="/login"
+                  sx={{ 
+                    color: 'primary.main',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' }
+                  }}
+                >
+                  Inicia sesión aquí
+                </MuiLink>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

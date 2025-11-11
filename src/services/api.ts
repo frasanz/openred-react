@@ -13,6 +13,12 @@ import {
   ApiResponse,
   DeviceFormData
 } from '../types';
+import {
+  ActivityStatistics,
+  GlobalStatistics,
+  HeatmapStatistics,
+  RecordsStatistics
+} from '../types/statistics';
 import { mockMeasurements, mockCampaigns, mockMissions } from './mockData';
 import { MeasurementServiceFactory, MeasurementType } from './measurements';
 
@@ -23,11 +29,12 @@ class ApiService {
   private loadingPromise: Promise<Measurement[]> | null = null; // Para evitar peticiones duplicadas
 
   constructor() {
-    // En desarrollo, usar rutas relativas para aprovechar el proxy
-    // En producción, usar la URL completa del backend
+    // Configurar URLs específicas por entorno
+    // En desarrollo: usar proxy de package.json (baseURL vacío)
+    // En producción: URL completa del backend
     this.baseURL = process.env.NODE_ENV === 'development' 
-      ? '' // Usar proxy en desarrollo
-      : (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000');
+      ? ''  // Usa el proxy configurado en package.json
+      : 'https://api.open-red.es';  // URL completa para producción
     
     this.api = axios.create({
       baseURL: this.baseURL,
@@ -279,7 +286,7 @@ class ApiService {
 
   // Track management
   async getTracks(): Promise<Track[]> {
-    const response: AxiosResponse<ApiResponse<Track>> = await this.api.get('/api/tracks/');
+    const response: AxiosResponse<ApiResponse<Track>> = await this.api.get('/api/tracks/my_tracks/');
     console.log('🔍 getTracks response:', response.data);
     
     // Manejar diferentes formatos de respuesta
@@ -398,7 +405,17 @@ class ApiService {
       mission?: number;
       campaign?: number;
     }
-  ): Promise<{ hexagons: any[], resolution?: number, totalMeasurements?: number }> {
+  ): Promise<{ 
+    hexagons: any[], 
+    resolution?: number, 
+    totalMeasurements?: number,
+    statistics?: {
+      global_avg: number;
+      global_min: number;
+      global_max: number;
+      global_std?: number;
+    }
+  }> {
     const measurementType = params?.measurementType || 'radiation';
     const service = measurementType === 'radiation' 
       ? this.measurements.radiation 
@@ -471,6 +488,32 @@ class ApiService {
     const response: AxiosResponse<void> = await this.api.post('/dj-rest-auth/registration/verify-email/', {
       key: key
     });
+    return response.data;
+  }
+
+  // Statistics methods
+  async getActivityStatistics(): Promise<ActivityStatistics> {
+    const response: AxiosResponse<ActivityStatistics> = await this.api.get('/api/stats/activity/');
+    return response.data;
+  }
+
+  async getGlobalStatistics(type: 'radiation' | 'light_pollution' = 'radiation'): Promise<GlobalStatistics> {
+    const response: AxiosResponse<GlobalStatistics> = await this.api.get(`/api/stats/global/?type=${type}`);
+    return response.data;
+  }
+
+  async getHeatmapStatistics(
+    resolution: number = 8, 
+    type: 'radiation' | 'light_pollution' = 'radiation'
+  ): Promise<HeatmapStatistics> {
+    const response: AxiosResponse<HeatmapStatistics> = await this.api.get(
+      `/api/stats/heatmap/?resolution=${resolution}&type=${type}`
+    );
+    return response.data;
+  }
+
+  async getRecordsStatistics(): Promise<RecordsStatistics> {
+    const response: AxiosResponse<RecordsStatistics> = await this.api.get('/api/stats/records/');
     return response.data;
   }
 

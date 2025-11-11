@@ -37,6 +37,7 @@ const ConfirmResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
   const [validToken, setValidToken] = useState(false);
 
@@ -69,6 +70,7 @@ const ConfirmResetPasswordPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setFieldErrors({});
       
       await apiService.confirmPasswordReset(uid, token, data.password1);
       setSuccess(true);
@@ -85,10 +87,27 @@ const ConfirmResetPasswordPage: React.FC = () => {
       if (error.response?.data) {
         const errorData = error.response.data;
         
-        if (errorData.token) {
+        // Capturar errores de campos específicos
+        const fieldErrs: Record<string, string> = {};
+        
+        if (errorData.new_password1) {
+          fieldErrs.password1 = Array.isArray(errorData.new_password1) 
+            ? errorData.new_password1.join(' ') 
+            : errorData.new_password1;
+        }
+        
+        if (errorData.new_password2) {
+          fieldErrs.password2 = Array.isArray(errorData.new_password2) 
+            ? errorData.new_password2.join(' ') 
+            : errorData.new_password2;
+        }
+        
+        // Si hay errores de campo, establecerlos
+        if (Object.keys(fieldErrs).length > 0) {
+          setFieldErrors(fieldErrs);
+          errorMessage = 'Por favor, corrige los errores indicados en los campos';
+        } else if (errorData.token) {
           errorMessage = 'El enlace de recuperación ha expirado o es inválido. Solicita uno nuevo.';
-        } else if (errorData.new_password1) {
-          errorMessage = `Contraseña: ${errorData.new_password1[0]}`;
         } else if (errorData.non_field_errors) {
           errorMessage = errorData.non_field_errors[0];
         } else if (errorData.detail) {
@@ -208,8 +227,8 @@ const ConfirmResetPasswordPage: React.FC = () => {
               type="password"
               id="password1"
               autoComplete="new-password"
-              error={!!errors.password1}
-              helperText={errors.password1?.message}
+              error={!!errors.password1 || !!fieldErrors.password1}
+              helperText={errors.password1?.message || fieldErrors.password1}
             />
 
             <TextField
@@ -222,8 +241,8 @@ const ConfirmResetPasswordPage: React.FC = () => {
               type="password"
               id="password2"
               autoComplete="new-password"
-              error={!!errors.password2}
-              helperText={errors.password2?.message}
+              error={!!errors.password2 || !!fieldErrors.password2}
+              helperText={errors.password2?.message || fieldErrors.password2}
             />
 
             <Button

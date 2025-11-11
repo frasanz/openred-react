@@ -74,14 +74,36 @@ export interface Track {
   updated_at: string;
   start_time?: string;
   end_time?: string;
-  distance?: number; // en metros
+  distance?: number; // en metros (legacy field)
+  total_distance?: number; // en metros (nuevo campo del backend)
   duration?: number; // en segundos
+  average_speed?: number; // velocidad promedio en m/s
   measurements_count?: number; // Note: backend uses measurements_count (plural)
+  // Estadísticas de radiación
+  min_dose_rate?: number; // Tasa de dosis mínima en µSv/h
+  max_dose_rate?: number; // Tasa de dosis máxima en µSv/h
+  avg_dose_rate?: number; // Tasa de dosis promedio en µSv/h
+  std_dose_rate?: number; // Desviación estándar de tasa de dosis en µSv/h
   status?: string; // completed, processing, error, etc.
   error_message?: string;
   is_public?: boolean;
   gpx_file?: string;
   geojson_data?: any;
+}
+
+// Weather cache data structure
+export interface WeatherCache {
+  id: number;
+  h3_cell: string;
+  timestamp_hour: string;
+  temperature: number;
+  humidity: number;
+  pressure: number;
+  wind_speed: number;
+  wind_direction: number;
+  cloud_cover: number;
+  fetched: boolean;
+  fetch_attempts: number;
 }
 
 // Base interface for all measurements
@@ -90,6 +112,7 @@ export interface BaseMeasurement {
   device: number; // Device ID
   user?: number; // User ID
   project: number; // Project ID
+  weather_cache?: WeatherCache; // Weather data from cache
   measurement_id: string;
   dateTime: string;
   timestamp?: number;

@@ -15,7 +15,7 @@ export const useProjects = () => {
     try {
       const baseURL = process.env.NODE_ENV === 'development' 
         ? '' // Usar proxy en desarrollo
-        : (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000');
+        : 'https://api.open-red.es'; // URL completa para producción
       
       const url = `${baseURL}/api/projects/`;
       
@@ -53,7 +53,7 @@ export const useProjects = () => {
     try {
       const baseURL = process.env.NODE_ENV === 'development' 
         ? '' // Usar proxy en desarrollo
-        : (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000');
+        : 'https://api.open-red.es'; // URL completa para producción
       
       const url = projectId 
         ? `${baseURL}/api/projects/${projectId}/`

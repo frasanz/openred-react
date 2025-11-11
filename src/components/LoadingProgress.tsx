@@ -1,5 +1,5 @@
 import React from 'react';
-import './LoadingProgress.css';
+import { Box, Typography, LinearProgress } from '@mui/material';
 
 interface LoadingProgressProps {
   loaded: number;
@@ -62,30 +62,50 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
   }
 
   return (
-    <div className="loading-progress">
-      <div className="progress-header">
-        <span className="progress-title">Cargando mediciones en paralelo</span>
-        <span className="progress-percentage">{percentage.toFixed(1)}%</span>
-      </div>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+        p: 3,
+        m: '16px auto',
+        bgcolor: 'background.paper',
+        borderRadius: 3,
+        boxShadow: 2,
+        maxWidth: 400,
+        minWidth: 320,
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="body1" fontWeight={500}>
+          Cargando mediciones en paralelo
+        </Typography>
+        <Typography variant="body2" fontWeight={600} color="primary">
+          {percentage.toFixed(1)}%
+        </Typography>
+      </Box>
       
-      <div className="progress-bar-container">
-        <div 
-          className="progress-bar" 
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
+      <LinearProgress 
+        variant="determinate" 
+        value={percentage}
+        sx={{ 
+          height: 8,
+          borderRadius: 1,
+          bgcolor: 'action.hover',
+        }}
+      />
       
-      <div className="progress-details">
-        <div className="progress-text">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+        <Typography variant="caption" color="text.secondary" fontWeight={500}>
           {loaded.toLocaleString()} de {total.toLocaleString()} mediciones
-        </div>
+        </Typography>
         {speed && (
-          <div className="progress-speed">
+          <Typography variant="caption" color="primary" sx={{ opacity: 0.8 }}>
             {speed}
-          </div>
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

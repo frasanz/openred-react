@@ -69,7 +69,8 @@ const HomePage: React.FC = () => {
     totalMeasurements,
     loading: dataLoading, 
     error: measurementsError,
-    isUsingH3 
+    isUsingH3,
+    statistics
   } = useMeasurementsByZoom({
     selectedProject,
     zoom: currentZoom,
@@ -216,6 +217,7 @@ const HomePage: React.FC = () => {
           isUsingH3={isUsingH3}
           onZoomChange={handleZoomChange}
           totalMeasurements={totalMeasurements}
+          statistics={statistics}
         />
       </Box>
       

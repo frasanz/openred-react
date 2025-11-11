@@ -11,7 +11,7 @@ import {
   Avatar,
   useTheme,
 } from '@mui/material';
-import { AccountCircle, Logout, DeviceHub, Person, Route } from '@mui/icons-material';
+import { AccountCircle, Logout, DeviceHub, Person, Route, BarChart } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -50,6 +50,11 @@ const Navbar: React.FC = () => {
     handleClose();
   };
 
+  const handleStatistics = () => {
+    navigate('/statistics');
+    handleClose();
+  };
+
   const handleProfile = () => {
     navigate('/profile');
     handleClose();
@@ -78,6 +83,23 @@ const Navbar: React.FC = () => {
         >
           OpenRed
         </Typography>
+
+        {/* Botón de Estadísticas visible siempre */}
+        <Button
+          startIcon={<BarChart />}
+          onClick={handleStatistics}
+          sx={{
+            ml: 3,
+            textTransform: 'none',
+            color: theme.palette.primary.main,
+            fontWeight: location.pathname === '/statistics' ? 600 : 400,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light + '20',
+            }
+          }}
+        >
+          Estadísticas
+        </Button>
 
         {/* Espaciador para empujar el contenido de usuario a la derecha */}
         <Box sx={{ flexGrow: 1 }} />

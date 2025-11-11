@@ -4,8 +4,19 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Link } from 'react-router-dom';
 import apiService from '../services/api';
-import { MdFilledTextField, MdFilledButton, MdCircularProgress } from '../components/MaterialComponents';
-import '../styles/auth.css';
+import { 
+  TextField, 
+  Button, 
+  CircularProgress,
+  Box,
+  Container,
+  Paper,
+  Typography,
+  Alert,
+  Link as MuiLink
+} from '@mui/material';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface ResetPasswordFormData {
   email: string;
@@ -63,91 +74,174 @@ const ResetPasswordPage: React.FC = () => {
 
   if (success) {
     return (
-      <div className="success-page">
-        <div className="success-container">
-          <div className="success-card">
-            <div className="card-content">
-              <h1 className="success-title">Email Enviado</h1>
-              
-              <div className="success-alert">
-                <span className="success-icon">✅</span>
-                <div className="success-content">
-                  <span>Te hemos enviado un email con instrucciones para restablecer tu contraseña. Revisa tu bandeja de entrada y sigue las instrucciones.</span>
-                </div>
-              </div>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: '#f5f5f5',
+          py: 3,
+        }}
+      >
+        <Container maxWidth="sm">
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              bgcolor: 'white',
+              borderRadius: 3,
+              textAlign: 'center',
+            }}
+          >
+            <Typography 
+              variant="h4" 
+              component="h1"
+              sx={{ 
+                mb: 3,
+                fontWeight: 400,
+                fontSize: 32,
+              }}
+            >
+              Email Enviado
+            </Typography>
+            
+            <Alert 
+              severity="success" 
+              icon={<CheckCircleIcon />}
+              sx={{ mb: 3, textAlign: 'left' }}
+            >
+              Te hemos enviado un email con instrucciones para restablecer tu contraseña. 
+              Revisa tu bandeja de entrada y sigue las instrucciones.
+            </Alert>
 
-              <p className="success-message">
-                Si no recibes el email en unos minutos, revisa tu carpeta de spam.
-              </p>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ mb: 3 }}
+            >
+              Si no recibes el email en unos minutos, revisa tu carpeta de spam.
+            </Typography>
 
-              <div className="back-link">
-                <Link to="/login" className="link">
-                  Volver al inicio de sesión
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            <MuiLink
+              component={Link}
+              to="/login"
+              sx={{ 
+                color: 'primary.main',
+                fontWeight: 500,
+                textDecoration: 'none',
+                '&:hover': { textDecoration: 'underline' }
+              }}
+            >
+              Volver al inicio de sesión
+            </MuiLink>
+          </Paper>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <div className="reset-password-page">
-      <div className="reset-password-container">
-        <div className="reset-password-card">
-          <div className="card-content">
-            <h1 className="reset-password-title">Recuperar Contraseña</h1>
-            
-            <p className="reset-password-subtitle">
-              Ingresa tu email y te enviaremos instrucciones para restablecer tu contraseña
-            </p>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#f5f5f5',
+        py: 3,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            bgcolor: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Typography 
+            variant="h4" 
+            component="h1"
+            sx={{ 
+              mb: 1,
+              fontWeight: 400,
+              fontSize: 32,
+            }}
+          >
+            Recuperar Contraseña
+          </Typography>
+          
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{ mb: 3 }}
+          >
+            Ingresa tu email y te enviaremos instrucciones para restablecer tu contraseña
+          </Typography>
 
-            {error && (
-              <div className="error-alert">
-                <span className="error-icon">⚠️</span>
-                <div className="error-content">
-                  <span>{error}</span>
-                </div>
-              </div>
-            )}
+          {error && (
+            <Alert 
+              severity="error" 
+              icon={<WarningIcon />}
+              sx={{ mb: 3 }}
+            >
+              {error}
+            </Alert>
+          )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="reset-password-form">
-              <MdFilledTextField
-                {...register('email')}
-                label="Correo Electrónico"
-                type="email"
-                required
-                error={!!errors.email}
-                error-text={errors.email?.message}
-                className="form-field"
-              />
+          <Box 
+            component="form" 
+            onSubmit={handleSubmit(onSubmit)}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <TextField
+              {...register('email')}
+              label="Correo Electrónico"
+              type="email"
+              required
+              error={!!errors.email}
+              helperText={errors.email?.message}
+              variant="filled"
+              fullWidth
+            />
 
-              <MdFilledButton
-                type="submit"
-                disabled={loading}
-                className="submit-button"
-              >
-                {loading ? (
-                  <MdCircularProgress indeterminate />
-                ) : (
-                  'Enviar Email de Recuperación'
-                )}
-              </MdFilledButton>
+            <Button
+              type="submit"
+              disabled={loading}
+              variant="contained"
+              fullWidth
+              sx={{ mt: 1, py: 1.5 }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Enviar Email de Recuperación'
+              )}
+            </Button>
 
-              <div className="login-link">
-                <p>
-                  ¿Recordaste tu contraseña?{' '}
-                  <Link to="/login" className="link">
-                    Volver al inicio de sesión
-                  </Link>
-                </p>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                ¿Recordaste tu contraseña?{' '}
+                <MuiLink
+                  component={Link}
+                  to="/login"
+                  sx={{ 
+                    color: 'primary.main',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' }
+                  }}
+                >
+                  Volver al inicio de sesión
+                </MuiLink>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

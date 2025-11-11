@@ -20,6 +20,12 @@ interface UseMeasurementsByZoomResult {
   isUsingH3: boolean;
   h3Resolution: number;
   totalMeasurements: number;
+  statistics?: {
+    global_avg: number;
+    global_min: number;
+    global_max: number;
+    global_std?: number;
+  };
 }
 
 // 🎯 CONFIGURACIÓN DE ZOOM Y RESOLUCIÓN H3
@@ -76,6 +82,7 @@ export const useMeasurementsByZoom = ({
   const [h3Data, setH3Data] = useState<any[]>([]);
   const [h3Resolution, setH3Resolution] = useState<number>(1);
   const [totalMeasurements, setTotalMeasurements] = useState<number>(0);
+  const [statistics, setStatistics] = useState<{ global_avg: number; global_min: number; global_max: number; global_std?: number } | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -163,6 +170,7 @@ export const useMeasurementsByZoom = ({
           setH3Data(data.hexagons);
           setH3Resolution(actualResolution);
           setTotalMeasurements(total);
+          setStatistics(data.statistics);
         } else {
           // Zoom >= 16: Cargar puntos individuales desde /api/radiation-measurements/
           const params: any = {
@@ -182,6 +190,7 @@ export const useMeasurementsByZoom = ({
           console.log(`✅ ${data.length} individual points loaded for zoom ${roundedZoom}`);
           setMeasurements(data);
           setTotalMeasurements(data.length);
+          setStatistics(undefined); // Limpiar estadísticas cuando vemos puntos individuales
         }
 
         lastLoadedRef.current = { 
@@ -207,5 +216,5 @@ export const useMeasurementsByZoom = ({
     loadData();
   }, [selectedProject, zoom, enabled, isUsingH3, onProgress, filters, missionId, campaignId]);
 
-  return { measurements, h3Data, loading, error, isUsingH3, h3Resolution, totalMeasurements };
+  return { measurements, h3Data, loading, error, isUsingH3, h3Resolution, totalMeasurements, statistics };
 };

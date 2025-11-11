@@ -15,6 +15,7 @@ import ConfirmResetPasswordPage from './pages/ConfirmResetPasswordPage';
 import DevicesPage from './pages/DevicesPage';
 import ProfilePage from './pages/ProfilePage';
 import TracksPage from './pages/TracksPage';
+import StatisticsPage from './pages/StatisticsPage';
 import theme from './theme/theme';
 
 // Estilos globales
@@ -73,7 +74,7 @@ function App() {
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
             <Navbar />
             
-            <div style={{ flexGrow: 1, overflow: 'hidden' }}>
+            <div style={{ flexGrow: 1, overflow: 'auto' }}>
               <Routes>
                 {/* Rutas públicas */}
                 <Route path="/" element={<HomePage />} />
@@ -128,6 +129,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <TracksPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/statistics" 
+                  element={
+                    <ProtectedRoute>
+                      <StatisticsPage />
                     </ProtectedRoute>
                   } 
                 />

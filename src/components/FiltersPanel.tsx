@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { Select, MenuItem, FormControl, InputLabel, Box, CircularProgress } from '@mui/material';
-import { MdSlider, MdTextButton, MdFilledButton } from './MaterialComponents';
+import { Select, MenuItem, FormControl, InputLabel, Box, CircularProgress, Typography } from '@mui/material';
 import { MapFilters, Project, AdaptiveFilters, CommonFilters, RadiationFilters, LightPollutionFilters, Mission, Campaign } from '../types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import DateRangeFilter from './filters/DateRangeFilter';
 import { ProjectSelector } from './ProjectSelector';
-import './FiltersPanelMD3.css';
 
 interface FiltersPanelMD3Props {
   measurements?: any[];
@@ -73,19 +71,18 @@ const FiltersPanelMD3: React.FC<FiltersPanelMD3Props> = ({
   }, [onCommonFiltersChange]);
 
   return (
-    <div className="md3-filters-panel">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px' }}>
-        {/* Project Selector */}
-        {onProjectChange && (
-          <ProjectSelector
-            selectedProject={selectedProject}
-            onProjectChange={onProjectChange}
-          />
-        )}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+      {/* Project Selector */}
+      {onProjectChange && (
+        <ProjectSelector
+          selectedProject={selectedProject}
+          onProjectChange={onProjectChange}
+        />
+      )}
 
-        {/* Mission and Campaign Filters */}
-        {onMissionChange && onCampaignChange && (
-          <>
+      {/* Mission and Campaign Filters */}
+      {onMissionChange && onCampaignChange && (
+        <>
             {/* Mission Selector */}
             <FormControl fullWidth size="small">
                 <InputLabel shrink={true}>Misión</InputLabel>
@@ -162,24 +159,34 @@ const FiltersPanelMD3: React.FC<FiltersPanelMD3Props> = ({
           </>
         )}
 
-        {/* Date Range Filter - Elegant Date Picker */}
-        <Box sx={{ mt: 1 }}>
-          <DateRangeFilter
-            startDate={effectiveFilters.startDate}
-            endDate={effectiveFilters.endDate}
-            onChange={handleDateRangeFiltersChange}
-          />
-        </Box>
-
-        {/* Simple stats display - MD3 Surface Container */}
-        <div className="md3-stats-simple" style={{ marginTop: '24px' }}>
-          <span className="md3-stats-count">
-            {(totalMeasurements !== undefined ? totalMeasurements : measurements.length).toLocaleString('es-ES')}
-          </span>
-          <span className="md3-stats-text">mediciones</span>
-        </div>
+      {/* Date Range Filter - Elegant Date Picker */}
+      <Box sx={{ mt: 1 }}>
+        <DateRangeFilter
+          startDate={effectiveFilters.startDate}
+          endDate={effectiveFilters.endDate}
+          onChange={handleDateRangeFiltersChange}
+        />
       </Box>
-    </div>
+
+      {/* Simple stats display */}
+      <Box 
+        sx={{ 
+          mt: 3,
+          p: 2, 
+          bgcolor: 'primary.main',
+          borderRadius: 2,
+          textAlign: 'center',
+          color: 'primary.contrastText'
+        }}
+      >
+        <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+          {(totalMeasurements !== undefined ? totalMeasurements : measurements.length).toLocaleString('es-ES')}
+        </Typography>
+        <Typography variant="body2" component="div">
+          mediciones
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 

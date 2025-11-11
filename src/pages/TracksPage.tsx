@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer, PathLayer, LineLayer } from '@deck.gl/layers';
 import { Map } from 'react-map-gl';
+import { getRadiationColorWithAlpha, RADIATION_LEGEND } from '../utils/radiationColors';
 import {
   Box,
   Typography,
@@ -25,6 +26,8 @@ import {
   InputLabel,
   useMediaQuery,
   useTheme,
+  Drawer,
+  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +42,7 @@ import {
   AccessTime as ClockIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { Track, Measurement, Mission, Campaign } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -71,6 +75,9 @@ const TracksPage: React.FC = () => {
   
   // Estado para controlar si el panel lateral está colapsado
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(isMobile);
+  
+  // Estado para controlar qué tarjetas están expandidas
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   
   // Track selection and map state
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
@@ -452,6 +459,19 @@ const TracksPage: React.FC = () => {
     }
   };
 
+  const toggleCardExpansion = (trackId: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // Evitar que se active handleTrackClick
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(trackId)) {
+        newSet.delete(trackId);
+      } else {
+        newSet.add(trackId);
+      }
+      return newSet;
+    });
+  };
+
   const formatDistance = (meters?: number) => {
     if (!meters) return '-';
     if (meters < 1000) return `${meters.toFixed(0)} m`;
@@ -486,54 +506,6 @@ const TracksPage: React.FC = () => {
     });
   };
 
-  // Función de colores para radiación (misma que MapComponent) - MEMOIZADA
-  const getRadiationColor = useCallback((value: number): [number, number, number, number] => {
-    // value en µSv/h (ya dividido por 100 desde el backend)
-    if (value < 0.10) {
-      // Verde (0-0.10 µSv/h)
-      const t = value / 0.10;
-      const red = 0;
-      const green = Math.round(180 + t * 75);
-      const blue = 0;
-      return [red, green, blue, 200];
-    } else if (value < 0.20) {
-      // Verde a Amarillo a Naranja (0.10-0.20 µSv/h)
-      const t = (value - 0.10) / 0.10;
-      if (t < 0.5) {
-        const t2 = t * 2;
-        const red = Math.round(0 + t2 * 255);
-        const green = 255;
-        const blue = 0;
-        return [red, green, blue, 200];
-      } else {
-        const t2 = (t - 0.5) * 2;
-        const red = 255;
-        const green = Math.round(255 - t2 * 90);
-        const blue = 0;
-        return [red, green, blue, 200];
-      }
-    } else if (value < 0.50) {
-      // Naranja a Rojo a Morado (0.20-0.50 µSv/h)
-      const t = (value - 0.20) / 0.30;
-      if (t < 0.3) {
-        const t2 = t / 0.3;
-        const red = 255;
-        const green = Math.round(165 - t2 * 165);
-        const blue = 0;
-        return [red, green, blue, 200];
-      } else {
-        const t2 = (t - 0.3) / 0.7;
-        const red = Math.round(255 - t2 * 105);
-        const green = 0;
-        const blue = Math.round(0 + t2 * 200);
-        return [red, green, blue, 200];
-      }
-    } else {
-      // Morado intenso (0.50+ µSv/h)
-      return [150, 0, 200, 200];
-    }
-  }, []);
-
   // Create map layers for track visualization - MEMOIZADO
   const layers = useMemo(() => [
     new ScatterplotLayer({
@@ -548,7 +520,7 @@ const TracksPage: React.FC = () => {
       getFillColor: (d: Measurement) => {
         // Usar color basado en dose_rate si es RadiationMeasurement
         if ('dose_rate' in d && d.dose_rate !== undefined) {
-          return getRadiationColor(d.dose_rate);
+          return getRadiationColorWithAlpha(d.dose_rate);
         }
         // Color naranja por defecto
         return [255, 140, 0, 200];
@@ -619,7 +591,7 @@ const TracksPage: React.FC = () => {
       getWidth: 1,
       widthMinPixels: 0.5,
     }),
-  ].filter(Boolean), [trackMeasurements, getRadiationColor]);
+  ].filter(Boolean), [trackMeasurements]);
 
   if (loading) {
     return (
@@ -630,63 +602,56 @@ const TracksPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden', position: 'relative' }}>
-      {/* Backdrop en móvil cuando el panel está abierto */}
-      {!sidebarCollapsed && isMobile && (
-        <Box
-          onClick={() => setSidebarCollapsed(true)}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1099,
-            transition: 'opacity 0.3s ease-in-out'
-          }}
-        />
-      )}
-
-      {/* Left Panel - Tracks List */}
-      <Box sx={{ 
-        width: sidebarCollapsed ? 0 : { xs: '85vw', md: '450px' },
-        flexShrink: 0,
-        overflowY: 'auto',
-        borderRight: '1px solid',
-        borderColor: 'divider',
-        p: sidebarCollapsed ? 0 : 3,
-        transition: 'width 0.3s ease-in-out',
-        position: { xs: 'absolute', md: 'relative' },
-        zIndex: { xs: 1100, md: 'auto' },
-        height: '100%',
-        backgroundColor: 'background.paper',
-        boxShadow: { xs: sidebarCollapsed ? 'none' : '2px 0 8px rgba(0,0,0,0.15)', md: 'none' }
-      }}>
-        {!sidebarCollapsed && (
-          <>
-            {/* Header con botón de colapsar */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="h5" gutterBottom>
-                  Mis Tracks
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Gestiona tus trayectorias
-                </Typography>
-              </Box>
-              <IconButton 
-                onClick={() => setSidebarCollapsed(true)}
-                size="small"
-                sx={{ 
-                  ml: 1,
-                  color: 'text.secondary',
-                  '&:hover': { color: 'primary.main' }
-                }}
-              >
-                <ChevronLeftIcon />
-              </IconButton>
-            </Box>
+    <Box sx={{ position: 'relative', height: 'calc(100vh - 64px)', width: '100%' }}>
+      {/* Drawer - Panel lateral que aparece encima del mapa */}
+      <Drawer
+        variant="temporary"
+        anchor="left"
+        open={!sidebarCollapsed}
+        onClose={() => setSidebarCollapsed(true)}
+        hideBackdrop
+        ModalProps={{
+          keepMounted: true,
+          style: { pointerEvents: 'none' }, // El modal no captura eventos
+        }}
+        PaperProps={{
+          style: { pointerEvents: 'auto' }, // Solo el panel captura eventos
+        }}
+        sx={{
+          zIndex: 1100, // Por debajo del navbar (que suele tener 1200+)
+          '& .MuiDrawer-paper': {
+            width: { xs: '85vw', md: 450 },
+            boxSizing: 'border-box',
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            p: 3,
+            top: 64, // Empieza debajo del navbar
+            height: 'calc(100vh - 64px)', // Altura sin contar el navbar
+          },
+        }}
+      >
+        {/* Header con botón de colapsar */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h5" gutterBottom>
+              Mis Tracks
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Gestiona tus trayectorias
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={() => setSidebarCollapsed(true)}
+            size="small"
+            sx={{ 
+              ml: 1,
+              color: 'text.secondary',
+              '&:hover': { color: 'primary.main' }
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </Box>
 
             <Button
               variant="contained"
@@ -720,188 +685,293 @@ const TracksPage: React.FC = () => {
           </Card>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {tracks.map((track) => (
-              <Card 
-                key={track.id} 
-                sx={{ 
-                  cursor: 'pointer',
-                  border: selectedTrack?.id === track.id ? 2 : 0,
-                  borderColor: 'primary.main',
-                  '&:hover': { boxShadow: 3 }
-                }}
-                onClick={() => handleTrackClick(track)}
-              >
-                <CardContent>
-                  {/* Header con título e icono público */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 0.5 }}>
-                        {track.name}
-                      </Typography>
-                      {track.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                          {track.description}
+            {tracks.map((track) => {
+              const isExpanded = expandedCards.has(track.id);
+              
+              return (
+                <Card 
+                  key={track.id} 
+                  sx={{ 
+                    cursor: 'pointer',
+                    border: selectedTrack?.id === track.id ? 2 : 0,
+                    borderColor: 'primary.main',
+                    '&:hover': { boxShadow: 3 }
+                  }}
+                  onClick={() => handleTrackClick(track)}
+                >
+                  <CardContent sx={{ pb: 1 }}>
+                    {/* Header con título, icono público y botón expandir */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, mb: 0.5 }}>
+                          {track.name}
                         </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {track.is_public && <PublicIcon fontSize="small" color="action" />}
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => toggleCardExpansion(track.id, e)}
+                          sx={{ 
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.3s'
+                          }}
+                        >
+                          <ExpandMoreIcon />
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {/* Chips de estado, misión y campaña - SIEMPRE VISIBLES */}
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.5 }}>
+                      {track.status && (
+                        <Chip 
+                          label={track.status} 
+                          size="small" 
+                          color={track.status === 'completed' ? 'success' : track.status === 'error' ? 'error' : 'default'}
+                        />
+                      )}
+                      {track.mission_name && (
+                        <Chip 
+                          label={track.mission_name} 
+                          size="small" 
+                          color="primary"
+                          variant="outlined"
+                        />
+                      )}
+                      {track.campaign_name && (
+                        <Chip 
+                          label={track.campaign_name} 
+                          size="small" 
+                          color="secondary"
+                          variant="outlined"
+                        />
                       )}
                     </Box>
-                    {track.is_public && <PublicIcon fontSize="small" color="action" />}
-                  </Box>
 
-                  {/* Chips de estado, misión y campaña */}
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
-                    {track.status && (
-                      <Chip 
-                        label={track.status} 
-                        size="small" 
-                        color={track.status === 'completed' ? 'success' : track.status === 'error' ? 'error' : 'default'}
-                      />
-                    )}
-                    {track.mission_name && (
-                      <Chip 
-                        label={track.mission_name} 
-                        size="small" 
-                        color="primary"
-                        variant="outlined"
-                      />
-                    )}
-                    {track.campaign_name && (
-                      <Chip 
-                        label={track.campaign_name} 
-                        size="small" 
-                        color="secondary"
-                        variant="outlined"
-                      />
-                    )}
-                  </Box>
+                    {/* Fechas inicio y fin - SIEMPRE VISIBLES */}
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(2, 1fr)', 
+                      gap: 1,
+                      fontSize: '0.875rem'
+                    }}>
+                      {track.start_time && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <ClockIcon fontSize="small" color="action" />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, fontSize: '0.7rem' }}>
+                              Inicio
+                            </Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.813rem' }}>
+                              {formatDateTime(track.start_time)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                      {track.end_time && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <ClockIcon fontSize="small" color="action" />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, fontSize: '0.7rem' }}>
+                              Fin
+                            </Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.813rem' }}>
+                              {formatDateTime(track.end_time)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
 
-                  {/* Información principal en grid */}
-                  <Box sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(2, 1fr)', 
-                    gap: 1.5, 
-                    mb: 2,
-                    fontSize: '0.875rem'
-                  }}>
-                    {/* Mediciones */}
-                    {track.measurements_count !== undefined && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <TimelineIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                            Mediciones
+                    {/* Contenido expandible con Collapse de MUI */}
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <Box>
+                        {/* Descripción */}
+                        {track.description && (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mt: 2, mb: 1.5 }}>
+                            {track.description}
                           </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {track.measurements_count}
+                        )}
+
+                        {/* Información detallada en grid */}
+                        <Box sx={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: 'repeat(2, 1fr)', 
+                          gap: 1.5, 
+                          mt: 2,
+                          fontSize: '0.875rem'
+                        }}>
+                          {/* Mediciones */}
+                          {track.measurements_count !== undefined && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <TimelineIcon fontSize="small" color="action" />
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
+                                  Mediciones
+                                </Typography>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {track.measurements_count}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Distancia - usar total_distance si existe, sino distance */}
+                          {(track.total_distance !== undefined || track.distance !== undefined) && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <RouteIcon fontSize="small" color="action" />
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
+                                  Distancia
+                                </Typography>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {formatDistance(track.total_distance || track.distance)}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Velocidad promedio */}
+                          {track.average_speed !== undefined && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <SpeedIcon fontSize="small" color="action" />
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
+                                  Velocidad media
+                                </Typography>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {(track.average_speed * 3.6).toFixed(2)} km/h
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Duración */}
+                          {track.duration && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <TimerIcon fontSize="small" color="action" />
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
+                                  Duración
+                                </Typography>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {formatDuration(track.duration)}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
+
+                        {/* Sección de Estadísticas de Radiación */}
+                        {(track.avg_dose_rate !== undefined && track.avg_dose_rate !== null || 
+                          track.max_dose_rate !== undefined && track.max_dose_rate !== null || 
+                          track.min_dose_rate !== undefined && track.min_dose_rate !== null) && (
+                          <Box sx={{ 
+                            mt: 2,
+                            pt: 2, 
+                            borderTop: '1px solid',
+                            borderColor: 'divider'
+                          }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'text.primary' }}>
+                              Tasa de dosis
+                            </Typography>
+                            <Box sx={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: 'repeat(2, 1fr)', 
+                              gap: 1,
+                              fontSize: '0.813rem'
+                            }}>
+                              {track.avg_dose_rate !== undefined && track.avg_dose_rate !== null && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                                    Media
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'warning.main' }}>
+                                    {track.avg_dose_rate.toFixed(3)} µSv/h
+                                  </Typography>
+                                </Box>
+                              )}
+                              {track.max_dose_rate !== undefined && track.max_dose_rate !== null && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                                    Máxima
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'error.main' }}>
+                                    {track.max_dose_rate.toFixed(3)} µSv/h
+                                  </Typography>
+                                </Box>
+                              )}
+                              {track.min_dose_rate !== undefined && track.min_dose_rate !== null && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                                    Mínima
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'success.main' }}>
+                                    {track.min_dose_rate.toFixed(3)} µSv/h
+                                  </Typography>
+                                </Box>
+                              )}
+                              {track.std_dose_rate !== undefined && track.std_dose_rate !== null && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                                    Desv. std
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'info.main' }}>
+                                    {track.std_dose_rate.toFixed(3)} µSv/h
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                          </Box>
+                        )}
+
+                        {/* Fecha de creación al final */}
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.5, 
+                          pt: 1.5, 
+                          mt: 1.5,
+                          borderTop: '1px solid',
+                          borderColor: 'divider'
+                        }}>
+                          <CalendarIcon fontSize="small" sx={{ fontSize: '0.875rem', color: 'text.secondary' }} />
+                          <Typography variant="caption" color="text.secondary">
+                            Creado: {formatDate(track.created_at)}
                           </Typography>
                         </Box>
                       </Box>
-                    )}
-
-                    {/* Distancia */}
-                    {track.distance && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <SpeedIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                            Distancia
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDistance(track.distance)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-
-                    {/* Duración */}
-                    {track.duration && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <TimerIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                            Duración
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDuration(track.duration)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-
-                    {/* Inicio */}
-                    {track.start_time && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                            Inicio
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDateTime(track.start_time)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-
-                    {/* Fin */}
-                    {track.end_time && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                            Fin
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDateTime(track.end_time)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-
-                  {/* Fecha de creación al final */}
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 0.5, 
-                    pt: 1.5, 
-                    borderTop: '1px solid',
-                    borderColor: 'divider'
-                  }}>
-                    <CalendarIcon fontSize="small" sx={{ fontSize: '0.875rem', color: 'text.secondary' }} />
-                    <Typography variant="caption" color="text.secondary">
-                      Creado: {formatDate(track.created_at)}
-                    </Typography>
-                  </Box>
-                </CardContent>
-                
-                <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleOpenDialog(track); 
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton 
-                    size="small" 
-                    color="error"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleOpenDeleteDialog(track); 
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </CardActions>
-              </Card>
-            ))}
+                    </Collapse>
+                  </CardContent>
+                  
+                  <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleOpenDialog(track); 
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      color="error"
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleOpenDeleteDialog(track); 
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              );
+            })}
           </Box>
         )}
-        </>
-        )}
-      </Box>
+      </Drawer>
 
       {/* Botón para expandir el sidebar cuando está colapsado */}
       {sidebarCollapsed && (
@@ -932,8 +1002,14 @@ const TracksPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Right Panel - Map */}
-      <Box sx={{ flex: 1, position: 'relative' }}>
+      {/* Map - Siempre ocupa toda la pantalla de fondo */}
+      <Box sx={{ 
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+      }}>
         {/* Mensaje cuando no hay track seleccionado */}
         {!selectedTrack && (
           <Box sx={{ 
@@ -1022,66 +1098,18 @@ const TracksPage: React.FC = () => {
                 Tasa de dosis (µSv/h)
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: 'linear-gradient(to right, rgb(0,180,0), rgb(0,255,0))',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>0-10 (Bajo)</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: 'linear-gradient(to right, rgb(0,255,0), rgb(255,255,0))',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>10-15</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: 'linear-gradient(to right, rgb(255,255,0), rgb(255,165,0))',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>15-20</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: 'linear-gradient(to right, rgb(255,165,0), rgb(255,0,0))',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>20-29</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: 'linear-gradient(to right, rgb(255,0,0), rgb(150,0,200))',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>29-50</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    backgroundColor: 'rgb(150,0,200)',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>50+ (Alto)</Typography>
-                </Box>
+                {RADIATION_LEGEND.map((item, index) => (
+                  <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 24, 
+                      height: 16, 
+                      background: item.gradient,
+                      borderRadius: '2px',
+                      border: '1px solid rgba(0,0,0,0.1)'
+                    }} />
+                    <Typography variant="caption" sx={{ fontSize: '11px' }}>{item.label}</Typography>
+                  </Box>
+                ))}
               </Box>
             </Paper>
 
@@ -1096,9 +1124,24 @@ const TracksPage: React.FC = () => {
                 maxWidth: 300,
                 pointerEvents: 'none'
               }}>
-                <Typography variant="caption" component="div" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  Medición #{hoveredPoint.object.id}
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Medición Individual
                 </Typography>
+                {'dose_rate' in hoveredPoint.object && hoveredPoint.object.dose_rate !== undefined && (
+                  <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+                    ☢️ {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredPoint.object.radiation_unit || 'µSv/h'}
+                  </Typography>
+                )}
+                {'speed' in hoveredPoint.object && hoveredPoint.object.speed !== undefined && hoveredPoint.object.speed !== null && (
+                  <Typography variant="caption" component="div" sx={{ color: 'primary.main' }}>
+                    🚀 {(hoveredPoint.object.speed * 3.6).toFixed(2)} km/h
+                  </Typography>
+                )}
+                {'count_rate' in hoveredPoint.object && hoveredPoint.object.count_rate && (
+                  <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
+                    📊 {hoveredPoint.object.count_rate.toFixed(2)} CPM
+                  </Typography>
+                )}
                 <Typography variant="caption" component="div">
                   📍 Lat: {typeof hoveredPoint.object.latitude === 'number' 
                     ? hoveredPoint.object.latitude.toFixed(6) 
@@ -1109,24 +1152,54 @@ const TracksPage: React.FC = () => {
                     ? hoveredPoint.object.longitude.toFixed(6) 
                     : parseFloat(hoveredPoint.object.longitude).toFixed(6)}
                 </Typography>
-                {'speed' in hoveredPoint.object && hoveredPoint.object.speed !== undefined && hoveredPoint.object.speed !== null && (
-                  <Typography variant="caption" component="div" sx={{ color: 'primary.main' }}>
-                    🚀 {(hoveredPoint.object.speed * 3.6).toFixed(2)} km/h
-                  </Typography>
-                )}
-                {'dose_rate' in hoveredPoint.object && (
-                  <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
-                    ☢️ {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredPoint.object.radiation_unit || 'µSv/h'}
-                  </Typography>
-                )}
-                {'count_rate' in hoveredPoint.object && hoveredPoint.object.count_rate && (
-                  <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
-                    📊 {hoveredPoint.object.count_rate.toFixed(2)} CPM
+                {hoveredPoint.object.altitude && (
+                  <Typography variant="caption" component="div">
+                    ⛰️ {hoveredPoint.object.altitude}m
                   </Typography>
                 )}
                 {hoveredPoint.object.dateTime && (
                   <Typography variant="caption" component="div" color="text.secondary">
                     🕐 {new Date(hoveredPoint.object.dateTime).toLocaleString('es-ES')}
+                  </Typography>
+                )}
+                
+                {/* Datos del tiempo */}
+                {hoveredPoint.object.weather_cache && (
+                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                      ☁️ Condiciones Meteorológicas
+                    </Typography>
+                    {hoveredPoint.object.weather_cache.temperature != null && (
+                      <Typography variant="caption" component="div">
+                        🌡️ {hoveredPoint.object.weather_cache.temperature.toFixed(1)}°C
+                      </Typography>
+                    )}
+                    {hoveredPoint.object.weather_cache.humidity != null && (
+                      <Typography variant="caption" component="div">
+                        💧 Humedad: {hoveredPoint.object.weather_cache.humidity.toFixed(0)}%
+                      </Typography>
+                    )}
+                    {hoveredPoint.object.weather_cache.pressure != null && (
+                      <Typography variant="caption" component="div">
+                        🔽 Presión: {hoveredPoint.object.weather_cache.pressure.toFixed(1)} hPa
+                      </Typography>
+                    )}
+                    {hoveredPoint.object.weather_cache.wind_speed != null && hoveredPoint.object.weather_cache.wind_direction != null && (
+                      <Typography variant="caption" component="div">
+                        💨 Viento: {hoveredPoint.object.weather_cache.wind_speed.toFixed(1)} m/s ({hoveredPoint.object.weather_cache.wind_direction.toFixed(0)}°)
+                      </Typography>
+                    )}
+                    {hoveredPoint.object.weather_cache.cloud_cover != null && (
+                      <Typography variant="caption" component="div">
+                        ☁️ Nubosidad: {hoveredPoint.object.weather_cache.cloud_cover.toFixed(0)}%
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                
+                {hoveredPoint.object.notes && (
+                  <Typography variant="caption" component="div" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                    {hoveredPoint.object.notes}
                   </Typography>
                 )}
               </Paper>

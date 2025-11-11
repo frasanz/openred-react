@@ -5,8 +5,18 @@ import * as yup from 'yup';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LoginCredentials } from '../types';
-import { MdFilledTextField, MdFilledButton, MdCircularProgress } from '../components/MaterialComponents';
-import '../styles/auth.css';
+import { 
+  TextField, 
+  Button, 
+  CircularProgress, 
+  Box, 
+  Container, 
+  Paper, 
+  Typography,
+  Alert,
+  Link as MuiLink 
+} from '@mui/material';
+import WarningIcon from '@mui/icons-material/Warning';
 
 const schema = yup.object({
   email: yup
@@ -67,74 +77,133 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <div className="login-card">
-          <div className="card-content">
-            <h1 className="login-title">Iniciar Sesión</h1>
-            
-            <p className="login-subtitle">
-              Accede a tu cuenta de OpenRed
-            </p>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#f5f5f5',
+        py: 3,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            bgcolor: 'white',
+            borderRadius: 3,
+          }}
+        >
+          <Typography 
+            variant="h4" 
+            component="h1"
+            sx={{ 
+              mb: 1,
+              fontWeight: 400,
+              fontSize: 32,
+            }}
+          >
+            Iniciar Sesión
+          </Typography>
+          
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{ mb: 3 }}
+          >
+            Accede a tu cuenta de OpenRed
+          </Typography>
 
-            {(error || submitError) && (
-              <div className="error-alert">
-                <span className="error-icon">⚠️</span>
-                <div className="error-content">
-                  <span>{error || submitError}</span>
-                  <Link to="/reset-password" className="error-link">
+          {(error || submitError) && (
+            <Alert 
+              severity="error" 
+              icon={<WarningIcon />}
+              sx={{ mb: 3 }}
+            >
+              <Box>
+                {error || submitError}
+                <Box sx={{ mt: 1 }}>
+                  <MuiLink 
+                    component={Link}
+                    to="/reset-password"
+                    sx={{ 
+                      color: 'error.main',
+                      fontWeight: 500,
+                      textDecoration: 'none',
+                      '&:hover': { textDecoration: 'underline' }
+                    }}
+                  >
                     ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
-              </div>
-            )}
+                  </MuiLink>
+                </Box>
+              </Box>
+            </Alert>
+          )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="login-form">
-              <MdFilledTextField
-                {...register('email')}
-                label="Correo Electrónico"
-                type="email"
-                required
-                error={!!errors.email}
-                error-text={errors.email?.message}
-                className="form-field"
-              />
-              
-              <MdFilledTextField
-                {...register('password')}
-                label="Contraseña"
-                type="password"
-                required
-                error={!!errors.password}
-                error-text={errors.password?.message}
-                className="form-field"
-              />
+          <Box 
+            component="form" 
+            onSubmit={handleSubmit(onSubmit)}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <TextField
+              {...register('email')}
+              label="Correo Electrónico"
+              type="email"
+              required
+              error={!!errors.email}
+              helperText={errors.email?.message}
+              variant="filled"
+              fullWidth
+            />
+            
+            <TextField
+              {...register('password')}
+              label="Contraseña"
+              type="password"
+              required
+              error={!!errors.password}
+              helperText={errors.password?.message}
+              variant="filled"
+              fullWidth
+            />
 
-              <MdFilledButton
-                type="submit"
-                disabled={loading}
-                className="submit-button"
-              >
-                {loading ? (
-                  <MdCircularProgress indeterminate />
-                ) : (
-                  'Iniciar Sesión'
-                )}
-              </MdFilledButton>
+            <Button
+              type="submit"
+              disabled={loading}
+              variant="contained"
+              fullWidth
+              sx={{ mt: 1, py: 1.5 }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Iniciar Sesión'
+              )}
+            </Button>
 
-              <div className="register-link">
-                <p>
-                  ¿No tienes cuenta?{' '}
-                  <Link to="/register" className="link">
-                    Regístrate aquí
-                  </Link>
-                </p>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                ¿No tienes cuenta?{' '}
+                <MuiLink
+                  component={Link}
+                  to="/register"
+                  sx={{ 
+                    color: 'primary.main',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' }
+                  }}
+                >
+                  Regístrate aquí
+                </MuiLink>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

@@ -329,32 +329,6 @@ const ProfilePage: React.FC = () => {
               </CardContent>
             </Card>
           )}
-
-          {/* Información adicional */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Estado de la Cuenta
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Chip 
-                  label={user.is_active ? "Activa" : "Inactiva"} 
-                  color={user.is_active ? "success" : "error"}
-                  size="small"
-                />
-              </Box>
-              {user.is_staff && (
-                <Box sx={{ mb: 2 }}>
-                  <Chip label="Staff" color="warning" size="small" />
-                </Box>
-              )}
-              {user.is_superuser && (
-                <Box sx={{ mb: 2 }}>
-                  <Chip label="Administrador" color="error" size="small" />
-                </Box>
-              )}
-            </CardContent>
-          </Card>
         </Box>
       </Box>
 
