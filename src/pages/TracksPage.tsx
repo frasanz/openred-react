@@ -99,6 +99,7 @@ const TracksPage: React.FC = () => {
     is_public: false,
     mission: undefined as number | undefined,
     campaign: undefined as number | undefined,
+    password: '',
   });
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -112,18 +113,18 @@ const TracksPage: React.FC = () => {
     const abortController = new AbortController();
 
     const loadTracks = async () => {
-      console.log('🔄 Loading tracks...');
+      console.log('Loading tracks...');
       setLoading(true);
       setError(null);
       try {
         const data = await apiService.getTracks();
         if (!abortController.signal.aborted) {
           setTracks(data);
-          console.log('📍 Tracks loaded:', data.length, data);
+          console.log('Tracks loaded:', data.length, data);
         }
       } catch (err: any) {
         if (!abortController.signal.aborted) {
-          console.error('❌ Error loading tracks:', err);
+          console.error('Error loading tracks:', err);
           setError(err.message || 'Error al cargar los tracks');
         }
       } finally {
@@ -135,18 +136,23 @@ const TracksPage: React.FC = () => {
 
     const loadMissionsAndCampaigns = async () => {
       try {
-        console.log('📞 Calling getMissions API...');
-        const missionsData = await apiService.getMissions();
-        console.log('📦 getMissions response:', missionsData);
+        if (!selectedProject?.id) {
+          console.log('No project selected, skipping missions load');
+          return;
+        }
+        
+        console.log('Calling getMissions API for project:', selectedProject.id);
+        const missionsData = await apiService.getMissions(selectedProject.id);
+        console.log('getMissions response:', missionsData);
         
         if (!abortController.signal.aborted) {
           setMissions(missionsData);
-          console.log('✅ Missions set in state:', missionsData.length, missionsData);
+          console.log('Missions set in state:', missionsData.length, missionsData);
         } else {
-          console.log('⚠️ Request aborted, skipping setMissions');
+          console.log('Request aborted, skipping setMissions');
         }
       } catch (err: any) {
-        console.error('❌ Error loading missions:', err);
+        console.error('Error loading missions:', err);
         // No mostrar error crítico, los campos serán opcionales
       }
     };
@@ -169,12 +175,12 @@ const TracksPage: React.FC = () => {
     setLoadingMap(true);
     
     try {
-      console.log('🗺️ Loading measurements for track:', track.id);
+      console.log('Loading measurements for track:', track.id);
       
       // Llamar al endpoint de measurements con filtro por track
       const measurements = await apiService.getMeasurements({ track: track.id });
       
-      console.log(`✅ Loaded ${measurements.length} measurements for track ${track.id}`);
+      console.log(`Loaded ${measurements.length} measurements for track ${track.id}`);
       setTrackMeasurements(measurements);
       
       // Calculate bounds to fit all points - OPTIMIZADO (single pass)
@@ -224,7 +230,7 @@ const TracksPage: React.FC = () => {
       }
       
     } catch (err: any) {
-      console.error('❌ Error loading track measurements:', err);
+      console.error('Error loading track measurements:', err);
       setError('Error al cargar las mediciones del track');
       setTrackMeasurements([]);
     } finally {
@@ -233,14 +239,14 @@ const TracksPage: React.FC = () => {
   };
 
   const reloadTracks = async () => {
-    console.log('🔄 Reloading tracks...');
+    console.log('Reloading tracks...');
     setError(null);
     try {
       const data = await apiService.getTracks();
       setTracks(data);
-      console.log('📍 Tracks reloaded:', data.length, data);
+      console.log('Tracks reloaded:', data.length, data);
     } catch (err: any) {
-      console.error('❌ Error reloading tracks:', err);
+      console.error('Error reloading tracks:', err);
       setError(err.message || 'Error al cargar los tracks');
     }
   };
@@ -251,22 +257,14 @@ const TracksPage: React.FC = () => {
     setCampaigns([]);
     
     try {
-      // Obtener el projectId del contexto
-      const projectId = selectedProject?.id;
-      
-      if (!projectId) {
-        console.warn('⚠️ No project selected, cannot load campaigns');
-        return;
-      }
-      
-      console.log('🔄 Loading campaigns for mission:', missionId, 'and project:', projectId);
-      // Pedir solo las campañas de esta misión y proyecto al backend
-      const campaignsData = await apiService.getCampaigns(missionId, projectId);
+      console.log('Loading campaigns for mission:', missionId);
+      // Pedir solo las campañas de esta misión al backend usando el endpoint anidado
+      const campaignsData = await apiService.getCampaigns(missionId);
       
       setCampaigns(campaignsData);
-      console.log('🎪 Campaigns loaded for mission:', campaignsData.length, campaignsData);
+      console.log('Campaigns loaded for mission:', campaignsData.length, campaignsData);
     } catch (err: any) {
-      console.error('❌ Error loading campaigns:', err);
+      console.error('Error loading campaigns:', err);
       setCampaigns([]);
     } finally {
       setLoadingCampaigns(false);
@@ -274,24 +272,24 @@ const TracksPage: React.FC = () => {
   };
 
   const handleOpenDialog = async (track?: Track) => {
-    console.log('🚪 Opening dialog for track:', track);
+    console.log('Opening dialog for track:', track);
     
     if (track) {
       try {
         // Obtener el track completo del API con todos sus datos actualizados
-        console.log('📞 Fetching complete track data from API...');
+        console.log('Fetching complete track data from API...');
         const completeTrack = await apiService.getTrack(track.id);
-        console.log('📦 Complete track data:', completeTrack);
+        console.log('Complete track data:', completeTrack);
         
         setEditingTrack(completeTrack);
         
         // Si el track tiene misión, cargar sus campañas para el dropdown
         if (completeTrack.mission) {
           try {
-            console.log('🎯 Loading campaigns for mission:', completeTrack.mission);
+            console.log('Loading campaigns for mission:', completeTrack.mission);
             await loadCampaignsForMission(completeTrack.mission);
           } catch (err) {
-            console.error('❌ Error loading campaigns:', err);
+            console.error('Error loading campaigns:', err);
           }
         }
         
@@ -302,9 +300,10 @@ const TracksPage: React.FC = () => {
           is_public: completeTrack.is_public || false,
           mission: completeTrack.mission,
           campaign: completeTrack.campaign,
+          password: '',
         });
         
-        console.log('✅ FormData set:', {
+        console.log('FormData set:', {
           name: completeTrack.name,
           description: completeTrack.description,
           mission: completeTrack.mission,
@@ -312,7 +311,7 @@ const TracksPage: React.FC = () => {
         });
         
       } catch (err) {
-        console.error('❌ Error loading track:', err);
+        console.error('Error loading track:', err);
         // Si falla, usar los datos que tenemos
         setEditingTrack(track);
         setFormData({
@@ -321,11 +320,12 @@ const TracksPage: React.FC = () => {
           is_public: track.is_public || false,
           mission: undefined,
           campaign: track.campaign,
+          password: '',
         });
       }
     } else {
       // Nuevo track
-      console.log('➕ Creating new track');
+      console.log('Creating new track');
       setEditingTrack(null);
       setFormData({
         name: '',
@@ -333,6 +333,7 @@ const TracksPage: React.FC = () => {
         is_public: false,
         mission: undefined,
         campaign: undefined,
+        password: '',
       });
       setCampaigns([]);
     }
@@ -351,6 +352,7 @@ const TracksPage: React.FC = () => {
       is_public: false,
       mission: undefined,
       campaign: undefined,
+      password: '',
     });
   };
 
@@ -362,12 +364,12 @@ const TracksPage: React.FC = () => {
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       if (fileExtension !== 'rctrk') {
         setFileError('Solo se permiten archivos con extensión .rctrk');
-        console.log('⚠️ Invalid file extension:', fileExtension);
+        console.log('Invalid file extension:', fileExtension);
         setSelectedFile(null);
         e.target.value = ''; // Limpiar el input
         return;
       }
-      console.log('📁 File selected:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+      console.log('File selected:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
       setSelectedFile(file);
       setFileError(null);
     } else {
@@ -379,7 +381,7 @@ const TracksPage: React.FC = () => {
     try {
       if (editingTrack) {
         await apiService.updateTrack(editingTrack.id, formData);
-        console.log('✏️ Track updated:', formData);
+        console.log('Track updated:', formData);
       } else {
         // Para crear un track necesitamos un archivo
         if (!selectedFile) {
@@ -417,10 +419,16 @@ const TracksPage: React.FC = () => {
         
         if (formData.campaign) {
           uploadData.append('campaign', formData.campaign.toString());
+          
+          // Agregar contraseña si la campaña requiere una
+          const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
+          if (selectedCampaign?.has_password && formData.password) {
+            uploadData.append('password', formData.password);
+          }
         }
 
         await apiService.createTrack(uploadData);
-        console.log('➕ Track created with file:', selectedFile.name);
+        console.log('Track created with file:', selectedFile.name);
       }
       handleCloseDialog();
       reloadTracks();
@@ -433,7 +441,7 @@ const TracksPage: React.FC = () => {
   const handleDeleteTrack = async (trackId: number) => {
     try {
       await apiService.deleteTrack(trackId);
-      console.log('🗑️ Track deleted:', trackId);
+      console.log('Track deleted:', trackId);
       setDeleteDialogOpen(false);
       setTrackToDelete(null);
       reloadTracks();
@@ -457,6 +465,26 @@ const TracksPage: React.FC = () => {
     if (trackToDelete) {
       handleDeleteTrack(trackToDelete.id);
     }
+  };
+
+  // Validar si el formulario es válido para crear un track
+  const isFormValid = () => {
+    if (editingTrack) {
+      return formData.name.trim() !== '';
+    }
+    
+    // Para crear un track, validar archivo y contraseña si es necesario
+    if (!selectedFile) return false;
+    
+    // Si hay una campaña seleccionada con has_password=true, validar contraseña
+    if (formData.campaign) {
+      const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
+      if (selectedCampaign?.has_password && !formData.password.trim()) {
+        return false;
+      }
+    }
+    
+    return true;
   };
 
   const toggleCardExpansion = (trackId: number, event: React.MouseEvent) => {
@@ -602,7 +630,7 @@ const TracksPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ position: 'relative', height: 'calc(100vh - 64px)', width: '100%' }}>
+    <Box sx={{ height: '100vh', overflow: 'hidden', position: 'relative', width: '100%' }}>
       {/* Drawer - Panel lateral que aparece encima del mapa */}
       <Drawer
         variant="temporary"
@@ -622,11 +650,15 @@ const TracksPage: React.FC = () => {
           '& .MuiDrawer-paper': {
             width: { xs: '85vw', md: 450 },
             boxSizing: 'border-box',
-            borderRight: '1px solid',
-            borderColor: 'divider',
+            border: 'none',
+            backgroundColor: '#cddced',
             p: 3,
-            top: 64, // Empieza debajo del navbar
-            height: 'calc(100vh - 64px)', // Altura sin contar el navbar
+            top: 80, // Empieza debajo del navbar (igual que Home/MapComponent)
+            height: 'calc(100vh - 80px)',
+            borderTopRightRadius: '16px',
+            borderBottomRightRadius: 0,
+            borderTopLeftRadius: 0,
+            borderBottomLeftRadius: 0,
           },
         }}
       >
@@ -987,12 +1019,11 @@ const TracksPage: React.FC = () => {
           <IconButton
             onClick={() => setSidebarCollapsed(false)}
             sx={{
-              backgroundColor: 'background.paper',
+              backgroundColor: '#cddced',
               boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              border: '1px solid',
-              borderColor: 'divider',
+              border: 'none',
               '&:hover': {
-                backgroundColor: 'action.hover',
+                backgroundColor: '#b8c9de',
                 boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
               }
             }}
@@ -1010,27 +1041,29 @@ const TracksPage: React.FC = () => {
         top: 0,
         left: 0,
       }}>
-        {/* Mensaje cuando no hay track seleccionado */}
+        {/* Mensaje cuando no hay track seleccionado (sin tapar el mapa, estilo Home) */}
         {!selectedTrack && (
-          <Box sx={{ 
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            bgcolor: 'background.default',
-            zIndex: 2
-          }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <RouteIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary">
-                Selecciona un track para ver su recorrido
-              </Typography>
-            </Box>
-          </Box>
+          <Paper
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 3,
+              p: 3,
+              textAlign: 'center',
+              maxWidth: 420,
+              bgcolor: '#cddced',
+              borderRadius: 3,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
+              border: 'none',
+            }}
+          >
+            <RouteIcon sx={{ fontSize: 80, color: 'rgba(0,0,0,0.35)', mb: 2 }} />
+            <Typography variant="h6" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+              Selecciona un track para ver su recorrido
+            </Typography>
+          </Paper>
         )}
         
         {/* Loading indicator */}
@@ -1129,37 +1162,37 @@ const TracksPage: React.FC = () => {
                 </Typography>
                 {'dose_rate' in hoveredPoint.object && hoveredPoint.object.dose_rate !== undefined && (
                   <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
-                    ☢️ {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredPoint.object.radiation_unit || 'µSv/h'}
+                    {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredPoint.object.radiation_unit || 'µSv/h'}
                   </Typography>
                 )}
                 {'speed' in hoveredPoint.object && hoveredPoint.object.speed !== undefined && hoveredPoint.object.speed !== null && (
                   <Typography variant="caption" component="div" sx={{ color: 'primary.main' }}>
-                    🚀 {(hoveredPoint.object.speed * 3.6).toFixed(2)} km/h
+                    {(hoveredPoint.object.speed * 3.6).toFixed(2)} km/h
                   </Typography>
                 )}
                 {'count_rate' in hoveredPoint.object && hoveredPoint.object.count_rate && (
                   <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
-                    📊 {hoveredPoint.object.count_rate.toFixed(2)} CPM
+                    {hoveredPoint.object.count_rate.toFixed(2)} CPM
                   </Typography>
                 )}
                 <Typography variant="caption" component="div">
-                  📍 Lat: {typeof hoveredPoint.object.latitude === 'number' 
+                  Lat: {typeof hoveredPoint.object.latitude === 'number' 
                     ? hoveredPoint.object.latitude.toFixed(6) 
                     : parseFloat(hoveredPoint.object.latitude).toFixed(6)}
                 </Typography>
                 <Typography variant="caption" component="div">
-                  📍 Lng: {typeof hoveredPoint.object.longitude === 'number' 
+                  Lng: {typeof hoveredPoint.object.longitude === 'number' 
                     ? hoveredPoint.object.longitude.toFixed(6) 
                     : parseFloat(hoveredPoint.object.longitude).toFixed(6)}
                 </Typography>
                 {hoveredPoint.object.altitude && (
                   <Typography variant="caption" component="div">
-                    ⛰️ {hoveredPoint.object.altitude}m
+                    {hoveredPoint.object.altitude}m
                   </Typography>
                 )}
                 {hoveredPoint.object.dateTime && (
                   <Typography variant="caption" component="div" color="text.secondary">
-                    🕐 {new Date(hoveredPoint.object.dateTime).toLocaleString('es-ES')}
+                    {new Date(hoveredPoint.object.dateTime).toLocaleString('es-ES')}
                   </Typography>
                 )}
                 
@@ -1167,31 +1200,31 @@ const TracksPage: React.FC = () => {
                 {hoveredPoint.object.weather_cache && (
                   <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                      ☁️ Condiciones Meteorológicas
+                      Condiciones Meteorológicas
                     </Typography>
                     {hoveredPoint.object.weather_cache.temperature != null && (
                       <Typography variant="caption" component="div">
-                        🌡️ {hoveredPoint.object.weather_cache.temperature.toFixed(1)}°C
+                        {hoveredPoint.object.weather_cache.temperature.toFixed(1)}°C
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.humidity != null && (
                       <Typography variant="caption" component="div">
-                        💧 Humedad: {hoveredPoint.object.weather_cache.humidity.toFixed(0)}%
+                        Humedad: {hoveredPoint.object.weather_cache.humidity.toFixed(0)}%
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.pressure != null && (
                       <Typography variant="caption" component="div">
-                        🔽 Presión: {hoveredPoint.object.weather_cache.pressure.toFixed(1)} hPa
+                        Presión: {hoveredPoint.object.weather_cache.pressure.toFixed(1)} hPa
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.wind_speed != null && hoveredPoint.object.weather_cache.wind_direction != null && (
                       <Typography variant="caption" component="div">
-                        💨 Viento: {hoveredPoint.object.weather_cache.wind_speed.toFixed(1)} m/s ({hoveredPoint.object.weather_cache.wind_direction.toFixed(0)}°)
+                        Viento: {hoveredPoint.object.weather_cache.wind_speed.toFixed(1)} m/s ({hoveredPoint.object.weather_cache.wind_direction.toFixed(0)}°)
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.cloud_cover != null && (
                       <Typography variant="caption" component="div">
-                        ☁️ Nubosidad: {hoveredPoint.object.weather_cache.cloud_cover.toFixed(0)}%
+                        Nubosidad: {hoveredPoint.object.weather_cache.cloud_cover.toFixed(0)}%
                       </Typography>
                     )}
                   </Box>
@@ -1278,8 +1311,8 @@ const TracksPage: React.FC = () => {
                 value={formData.mission || ''}
                 onChange={(e) => {
                   const missionId = e.target.value ? Number(e.target.value) : undefined;
-                  console.log('📝 Mission selected:', missionId);
-                  console.log('🔍 Available missions:', missions);
+                  console.log('Mission selected:', missionId);
+                  console.log('Available missions:', missions);
                   setFormData({ 
                     ...formData, 
                     mission: missionId,
@@ -1315,7 +1348,8 @@ const TracksPage: React.FC = () => {
                 value={formData.campaign || ''}
                 onChange={(e) => setFormData({ 
                   ...formData, 
-                  campaign: e.target.value ? Number(e.target.value) : undefined 
+                  campaign: e.target.value ? Number(e.target.value) : undefined,
+                  password: '' // Limpiar contraseña al cambiar de campaña
                 })}
                 label={loadingCampaigns ? 'Cargando campañas...' : 'Campaña (opcional)'}
               >
@@ -1329,6 +1363,19 @@ const TracksPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+            
+            {/* Campo de contraseña - solo si la campaña seleccionada tiene has_password=true */}
+            {formData.campaign && campaigns.find(c => c.id === formData.campaign)?.has_password && (
+              <TextField
+                label="Contraseña de la campaña"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                fullWidth
+                required
+                helperText="Esta campaña requiere una contraseña"
+              />
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1338,7 +1385,7 @@ const TracksPage: React.FC = () => {
           <Button
             onClick={handleSaveTrack}
             variant="contained"
-            disabled={editingTrack ? !formData.name.trim() : !selectedFile}
+            disabled={!isFormValid()}
           >
             {editingTrack ? 'Guardar' : 'Crear'}
           </Button>

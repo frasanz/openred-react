@@ -1,8 +1,8 @@
 # Resumen de Migración: OpenRed Frontend a Deck.gl
 
-## ✅ Migración Completada
+## Migración Completada
 
-### 🚀 Características Implementadas
+### Características Implementadas
 
 1. **Mapa 3D con Deck.gl + Mapbox**:
    - Visualización avanzada de mediciones de radiación gamma
@@ -19,7 +19,7 @@
    - Componentes reutilizables y modulares
 
 3. **Funcionalidades Públicas**:
-   - Mapa visible sin autenticación ✅
+   - Mapa visible sin autenticación 
    - Banner informativo para usuarios no registrados
    - Navbar adaptativa según estado de autenticación
 
@@ -29,7 +29,7 @@
    - Selector de campañas
    - Estadísticas en tiempo real
 
-### 🛠️ Tecnologías Utilizadas
+### Tecnologías Utilizadas
 
 - **React 19** + TypeScript
 - **Deck.gl** para visualización 3D
@@ -38,7 +38,7 @@
 - **Axios** para comunicación con API Django
 - **React Hook Form** + Yup para formularios
 
-### 📁 Estructura Final
+### Estructura Final
 
 ```
 openred-react/
@@ -68,9 +68,9 @@ openred-react/
 └── MIGRATION.md (actualizado)
 ```
 
-### 🎯 Estado del Proyecto
+### Estado del Proyecto
 
-✅ **Completado**:
+**Completado**:
 - Migración de Leaflet a Deck.gl
 - Configuración de Mapbox
 - Mapa público accesible sin autenticación
@@ -80,13 +80,13 @@ openred-react/
 - Vista 3D con controles de navegación
 - Documentación actualizada
 
-⚠️ **Pendiente para producción**:
+**Pendiente para producción**:
 - Configurar token real de Mapbox
 - Conectar con backend Django real
 - Pruebas de rendimiento con datos reales
 - Optimización de bundle size
 
-### 🔧 Comandos Útiles
+### Comandos Útiles
 
 ```bash
 # Desarrollo
@@ -102,7 +102,7 @@ npm install
 npm run build
 ```
 
-### 🌟 Mejoras Logradas vs Versión Original
+### Mejoras Logradas vs Versión Original
 
 | Aspecto | Versión Original (Leaflet) | Nueva Versión (Deck.gl) |
 |---------|---------------------------|-------------------------|
@@ -113,7 +113,7 @@ npm run build
 | **Personalización** | Limitada | Colores dinámicos, efectos |
 | **Mapas base** | OpenStreetMap | Mapbox (calidad superior) |
 
-## 🎉 Resultado Final
+## Resultado Final
 
 El frontend de OpenRed ahora cuenta con un sistema de visualización de mapas de última generación que:
 

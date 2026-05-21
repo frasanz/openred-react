@@ -148,7 +148,7 @@ Luego reinicia el servidor Django.
 ## Estado Actual del Frontend
 
 El frontend React ya está configurado correctamente para:
-- ✅ Enviar requests al formato correcto (`email` + `password`)
-- ✅ Manejar errores de red y autenticación
-- ✅ Mostrar mensajes informativos al usuario
-- ✅ Funcionar con datos mock cuando no hay backend disponible
+- Enviar requests al formato correcto (`email` + `password`)
+- Manejar errores de red y autenticación
+- Mostrar mensajes informativos al usuario
+- Funcionar con datos mock cuando no hay backend disponible

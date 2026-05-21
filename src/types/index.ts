@@ -55,6 +55,7 @@ export interface Campaign {
   created_at: string;
   max_participants?: number;
   is_public: boolean;
+  has_password: boolean;
 }
 
 export interface Track {
@@ -153,6 +154,9 @@ export interface RadiationMeasurement extends BaseMeasurement {
 export interface LightPollutionMeasurement extends BaseMeasurement {
   sky_brightness: number;
   brightness_unit: string;
+  lux?: number; // Iluminación en lux
+  cct?: number; // Temperatura de color (CCT) en Kelvin
+  brightness?: number; // Brillo general
   sqm_reading?: number;
   nelm?: number;
   bortle_class?: number;
@@ -167,6 +171,15 @@ export interface LightPollutionMeasurement extends BaseMeasurement {
 
 // Union type for all measurement types
 export type Measurement = RadiationMeasurement | LightPollutionMeasurement;
+
+// Espectros de radiación
+// Marcador ligero para el mapa (GET /api/radiation-spectra/map/) — array plano, sin counts.
+// latitude/longitude = coordenadas de inicio del espectro (solo los que tienen fix GPS).
+export interface RadiationSpectrumMarker {
+  id: number;
+  latitude: number;
+  longitude: number;
+}
 
 // Project interface
 export interface Project {
@@ -191,6 +204,10 @@ export interface CommonFilters {
   dataQuality: string[];
   minAccuracy?: number;
   maxAccuracy?: number;
+  minAltitude?: number;
+  maxAltitude?: number;
+  minSpeed?: number;
+  maxSpeed?: number;
   location?: {
     center: [number, number];
     radius: number;
@@ -206,6 +223,8 @@ export interface RadiationFilters {
   backgroundSubtracted?: boolean;
   minCPM?: number;
   maxCPM?: number;
+  minDoseRate?: number;
+  maxDoseRate?: number;
 }
 
 // Filtros específicos para contaminación lumínica

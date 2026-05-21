@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
@@ -16,6 +17,9 @@ import DevicesPage from './pages/DevicesPage';
 import ProfilePage from './pages/ProfilePage';
 import TracksPage from './pages/TracksPage';
 import StatisticsPage from './pages/StatisticsPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import MobileAppPage from './pages/MobileAppPage';
 import theme from './theme/theme';
 
 // Estilos globales
@@ -76,8 +80,9 @@ function App() {
             
             <div style={{ flexGrow: 1, overflow: 'auto' }}>
               <Routes>
-                {/* Rutas públicas */}
+                {/* Ruta principal - Siempre muestra el mapa */}
                 <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<LandingPage />} />
                 <Route 
                   path="/login" 
                   element={
@@ -114,16 +119,20 @@ function App() {
                   path="/reset-password/confirm" 
                   element={<ConfirmResetPasswordPage />} 
                 />
+                <Route 
+                  path="/privacy-policy" 
+                  element={<PrivacyPolicyPage />} 
+                />
+                <Route 
+                  path="/terms-of-service" 
+                  element={<TermsOfServicePage />} 
+                />
+                <Route 
+                  path="/mobile-app" 
+                  element={<MobileAppPage />} 
+                />
 
                 {/* Rutas protegidas */}
-                <Route 
-                  path="/devices" 
-                  element={
-                    <ProtectedRoute>
-                      <DevicesPage />
-                    </ProtectedRoute>
-                  } 
-                />
                 <Route 
                   path="/tracks" 
                   element={

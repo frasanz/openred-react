@@ -147,24 +147,28 @@ export const md3Theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Montserrat", "Helvetica", "Arial", sans-serif',
     // Material Design 3 Type Scale
+    // Títulos de página usan Bricolage Grotesque
     displayLarge: {
+      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
       fontSize: '57px',
       lineHeight: '64px',
-      fontWeight: 400,
+      fontWeight: 600,
       letterSpacing: '-0.25px',
     },
     displayMedium: {
+      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
       fontSize: '45px',
       lineHeight: '52px',
-      fontWeight: 400,
+      fontWeight: 600,
       letterSpacing: '0px',
     },
     displaySmall: {
+      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
       fontSize: '36px',
       lineHeight: '44px',
-      fontWeight: 400,
+      fontWeight: 600,
       letterSpacing: '0px',
     },
     headlineLarge: {
@@ -305,6 +309,7 @@ export const md3Theme = createTheme({
         root: {
           boxShadow: 'none',
           borderBottom: `1px solid ${md3Colors.neutral[90]}`,
+          borderRadius: 0,
         },
       },
     },

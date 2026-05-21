@@ -17,7 +17,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   // Debug logs
   useEffect(() => {
-    console.log('🔍 ProjectSelector Debug:', {
+    console.log('ProjectSelector Debug:', {
       projects,
       loading,
       error,
@@ -52,11 +52,11 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const getProjectIcon = (type: string) => {
     switch (type) {
       case 'radiation':
-        return '☢️';
+        return '';
       case 'light_pollution':
-        return '🌃';
+        return '';
       default:
-        return '📊';
+        return '';
     }
   };
 
@@ -109,7 +109,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   };
 
   if (loading) {
-    console.log('🔄 ProjectSelector: Mostrando estado de carga');
+    console.log('ProjectSelector: Mostrando estado de carga');
     return (
       <Box className={className} display="flex" alignItems="center" gap={1}>
         <CircularProgress size={16} />
@@ -132,7 +132,20 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   return (
     <Box className={className}>
-      <FormControl fullWidth size="small">
+      <FormControl fullWidth size="small" sx={{ 
+        '& .MuiOutlinedInput-root': {
+          '& fieldset': {
+            borderColor: '#0751A4',
+            borderWidth: '1px',
+          },
+          '&:hover fieldset': {
+            borderColor: '#0751A4',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: '#0751A4',
+          },
+        }
+      }}>
         <InputLabel id="project-selector-label">Proyecto</InputLabel>
         <Select
           labelId="project-selector-label"

@@ -867,7 +867,7 @@ npm audit fix --force
 
 ### 9.1 Problemas Comunes
 
-**❌ "Mapbox token inválido"**
+**"Mapbox token inválido"**
 
 ```bash
 # Verificar token en .env
@@ -877,7 +877,7 @@ echo $REACT_APP_MAPBOX_TOKEN
 npm start
 ```
 
-**❌ "CORS error al llamar API"**
+**"CORS error al llamar API"**
 
 Backend debe permitir origen del frontend:
 
@@ -889,7 +889,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 ```
 
-**❌ "Module not found"**
+**"Module not found"**
 
 ```bash
 # Limpiar node_modules
@@ -897,14 +897,14 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-**❌ "Deck.gl no renderiza"**
+**"Deck.gl no renderiza"**
 
 Verificar WebGL en navegador:
 ```
 https://get.webgl.org/
 ```
 
-**❌ "Build falla"**
+**"Build falla"**
 
 ```bash
 # Aumentar memoria de Node.js
@@ -921,13 +921,13 @@ npm run build
 if (process.env.REACT_APP_DEBUG === 'true') {
   // Log todas las peticiones
   api.interceptors.request.use(config => {
-    console.log('🔵 Request:', config);
+    console.log('Request:', config);
     return config;
   });
 
   // Log todas las respuestas
   api.interceptors.response.use(response => {
-    console.log('🟢 Response:', response);
+    console.log('Response:', response);
     return response;
   });
 }
@@ -949,7 +949,7 @@ if (process.env.REACT_APP_DEBUG === 'true') {
 
 ## 10. Hoja de Ruta
 
-### 10.1 Completado ✅
+### 10.1 Completado 
 
 - [x] Arquitectura base React + TypeScript
 - [x] Sistema de autenticación JWT
@@ -963,7 +963,7 @@ if (process.env.REACT_APP_DEBUG === 'true') {
 - [x] Responsive design
 - [x] Optimización de performance
 
-### 10.2 En Desarrollo 🚧
+### 10.2 En Desarrollo 
 
 - [ ] Internacionalización (i18n) español/inglés
 - [ ] Progressive Web App (PWA)
@@ -971,7 +971,7 @@ if (process.env.REACT_APP_DEBUG === 'true') {
 - [ ] Gráficas temporales de mediciones
 - [ ] Comparación de tracks
 
-### 10.3 Planificado 📋
+### 10.3 Planificado 
 
 - [ ] Modo offline con Service Workers
 - [ ] Notificaciones push
@@ -1096,7 +1096,7 @@ Ver archivo `CHANGELOG.md` para historial detallado de cambios por versión.
 
 *Generado para el Proyecto OpenRed - Plataforma de Monitorización de Radiación mediante Ciencia Ciudadana*
 
-## 🛠️ Tecnologías
+## Tecnologías
 
 - **React 19** con Hooks y Context API
 - **TypeScript** para tipado estático
@@ -1107,7 +1107,7 @@ Ver archivo `CHANGELOG.md` para historial detallado de cambios por versión.
 - **React Hook Form** con validación Yup
 - **Styled Components** para estilos personalizados
 
-## 📁 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 src/
@@ -1132,7 +1132,7 @@ src/
 └── App.tsx             # Componente principal
 ```
 
-## 🔧 Configuración
+## Configuración
 
 ### Variables de entorno
 
@@ -1172,7 +1172,7 @@ Para habilitar la visualización de mapas, necesitas obtener un token de acceso 
 
 > **Nota**: Sin el token de Mapbox, los mapas no se mostrarán correctamente. El mapa utiliza Deck.gl para renderizado 3D avanzado con Mapbox como capa base.
 
-## 🌐 Conexión con el Backend
+## Conexión con el Backend
 
 El frontend se conecta al backend Django a través de API REST:
 
@@ -1183,7 +1183,7 @@ El frontend se conecta al backend Django a través de API REST:
 - **Campañas**: `/api/campaigns/`
 - **Misiones**: `/api/missions/`
 
-## 📱 Funcionalidades principales
+## Funcionalidades principales
 
 ### Autenticación
 - Login y registro de usuarios
@@ -1217,7 +1217,7 @@ El frontend se conecta al backend Django a través de API REST:
 - Estados temporales (próxima, activa, finalizada)
 - Gestión de participantes
 
-## 🎨 Diseño y UX
+## Diseño y UX
 
 - **Material Design**: Seguimiento de las guías de Material-UI
 - **Tema personalizado**: Colores corporativos y tipografía
@@ -1225,7 +1225,7 @@ El frontend se conecta al backend Django a través de API REST:
 - **Accesibilidad**: Cumple estándares WCAG
 - **Feedback visual**: Loading states, mensajes de error/éxito
 
-## 🔄 Migración desde Django
+## Migración desde Django
 
 Este frontend React reemplaza las templates de Django manteniendo:
 - Misma funcionalidad que el frontend Django original
@@ -1233,7 +1233,7 @@ Este frontend React reemplaza las templates de Django manteniendo:
 - API REST como puente entre ambos sistemas
 - Posibilidad de coexistencia durante la transición
 
-## 📚 Scripts disponibles
+## Scripts disponibles
 
 ### `npm start`
 Inicia el servidor de desarrollo en [http://localhost:3000](http://localhost:3000)
@@ -1247,7 +1247,7 @@ Construye la aplicación para producción en la carpeta `build`
 ### `npm run eject`
 **Nota: esta operación es irreversible**
 
-## 🤝 Contribución
+## Contribución
 
 1. Fork el proyecto
 2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -1255,17 +1255,17 @@ Construye la aplicación para producción en la carpeta `build`
 4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abre un Pull Request
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la licencia correspondiente a OpenRed.
 
-## 🐛 Issues conocidos
+## Issues conocidos
 
 - Los date pickers requieren configuración adicional de locales para español
 - Algunos endpoints del backend pueden requerir ajustes para coincidir con la API esperada
 - La geolocalización requiere HTTPS en producción
 
-## 🔮 Próximas mejoras
+## Próximas mejoras
 
 - [ ] Internacionalización (i18n)
 - [ ] Progressive Web App (PWA)

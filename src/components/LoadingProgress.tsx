@@ -21,7 +21,7 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({
 
   // Efecto para debug - log de cambios en props
   React.useEffect(() => {
-    console.log(`🎨 LoadingProgress render: loaded=${loaded}, total=${total}, percentage=${percentage.toFixed(1)}%, isLoading=${isLoading}`);
+    console.log(`LoadingProgress render: loaded=${loaded}, total=${total}, percentage=${percentage.toFixed(1)}%, isLoading=${isLoading}`);
   }, [loaded, total, percentage, isLoading]);
 
   // Calcular velocidad aproximada de carga

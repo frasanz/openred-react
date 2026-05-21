@@ -5,6 +5,7 @@ import * as yup from 'yup';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LoginCredentials } from '../types';
+import { useGoogleLogin } from '@react-oauth/google';
 import { 
   TextField, 
   Button, 
@@ -14,9 +15,11 @@ import {
   Paper, 
   Typography,
   Alert,
-  Link as MuiLink 
+  Link as MuiLink,
+  Divider
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const schema = yup.object({
   email: yup
@@ -31,8 +34,9 @@ const schema = yup.object({
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, loading, error, clearError } = useAuth();
+  const { login, loginWithGoogle, loading, error, clearError } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const {
     register,
@@ -40,6 +44,49 @@ const LoginPage: React.FC = () => {
     formState: { errors },
   } = useForm<LoginCredentials>({
     resolver: yupResolver(schema),
+  });
+
+  const googleLogin = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async (tokenResponse) => {
+      try {
+        setGoogleLoading(true);
+        setSubmitError(null);
+        clearError();
+        
+        // tokenResponse.access_token es el access token de Google
+        await loginWithGoogle(tokenResponse.access_token);
+        navigate('/');
+      } catch (error: any) {
+        console.error('Google login error:', error.response?.data);
+        
+        let errorMessage = 'Error al iniciar sesión con Google';
+        
+        if (error.response?.data) {
+          const errorData = error.response.data;
+          
+          if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
+            errorMessage = errorData.non_field_errors[0];
+            
+            // Mejorar mensaje si el usuario ya está registrado
+            if (errorMessage.includes('already registered')) {
+              errorMessage = 'Este correo ya está registrado. Por favor, inicia sesión con tu contraseña o usa la opción "¿Olvidaste tu contraseña?" para recuperarla.';
+            }
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.email) {
+            errorMessage = `Email: ${errorData.email[0]}`;
+          }
+        }
+        
+        setSubmitError(errorMessage);
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => {
+      setSubmitError('Error al conectar con Google. Por favor, intenta de nuevo.');
+    },
   });
 
   const onSubmit = async (data: LoginCredentials) => {
@@ -181,6 +228,32 @@ const LoginPage: React.FC = () => {
               ) : (
                 'Iniciar Sesión'
               )}
+            </Button>
+
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                O continúa con
+              </Typography>
+            </Divider>
+
+            <Button
+              onClick={() => googleLogin()}
+              disabled={loading || googleLoading}
+              variant="outlined"
+              fullWidth
+              startIcon={googleLoading ? <CircularProgress size={20} /> : <GoogleIcon />}
+              sx={{ 
+                py: 1.5,
+                textTransform: 'none',
+                borderColor: '#dadce0',
+                color: '#3c4043',
+                '&:hover': {
+                  borderColor: '#d2e3fc',
+                  backgroundColor: '#f8f9fa'
+                }
+              }}
+            >
+              {googleLoading ? 'Conectando...' : 'Continuar con Google'}
             </Button>
 
             <Box sx={{ textAlign: 'center', mt: 2 }}>

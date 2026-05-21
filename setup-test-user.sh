@@ -1,22 +1,22 @@
 #!/bin/bash
 # Script para verificar el backend y crear usuario de prueba
 
-echo "🔍 Verificando backend Django..."
-echo "📍 URL: http://localhost:8000"
+echo "Verificando backend Django..."
+echo "URL: https://dev.ibercivis.es:8000"
 
 # Verificar si el backend está ejecutándose
-if curl -f -s http://localhost:8000/api/ > /dev/null; then
-    echo "✅ Backend Django está ejecutándose"
+if curl -f -s https://dev.ibercivis.es:8000/api/ > /dev/null; then
+    echo "Backend Django está ejecutándose"
 else
-    echo "❌ Backend Django no está disponible en http://localhost:8000"
-    echo "💡 Asegúrate de que el servidor Django esté ejecutándose:"
+    echo "Backend Django no está disponible en https://dev.ibercivis.es:8000"
+    echo "Asegúrate de que el servidor Django esté ejecutándose:"
     echo "   cd /path/to/django/backend"
     echo "   python manage.py runserver"
     exit 1
 fi
 
 echo ""
-echo "🔐 Para crear un usuario de prueba, ejecuta estos comandos en el backend Django:"
+echo "Para crear un usuario de prueba, ejecuta estos comandos en el backend Django:"
 echo ""
 echo "# 1. Acceder al shell de Django"
 echo "python manage.py shell"
@@ -44,6 +44,6 @@ echo "print('Usuario creado y verificado:')"
 echo "print(f'Email: {user.email}')"
 echo "print(f'Verificado: {email_address.verified}')"
 echo ""
-echo "🎯 Después podrás hacer login con:"
+echo "Después podrás hacer login con:"
 echo "   Email: test@example.com"
 echo "   Password: testpass123"

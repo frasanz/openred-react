@@ -36,6 +36,13 @@ import {
   RecordsStatistics,
   HeatmapStatistics,
 } from '../types/statistics';
+import {
+  OPENRED_ACCENT_RED,
+  OPENRED_NAVY,
+  OPENRED_PAGE_BG,
+  openredStatCardContentSx,
+  openredStatCardSx,
+} from '../styles/boxes';
 
 // Color del globo
 const GLOBE_RESOLUTION = 100;
@@ -52,6 +59,13 @@ const StatisticsPage: React.FC = () => {
   const [globalStats, setGlobalStats] = useState<GlobalStatistics | null>(null);
   const [heatmapStats, setHeatmapStats] = useState<HeatmapStatistics | null>(null);
   const [hoveredHex, setHoveredHex] = useState<any>(null);
+
+  const pageBg = OPENRED_PAGE_BG;
+  const accentRed = OPENRED_ACCENT_RED;
+  const navy = OPENRED_NAVY;
+
+  const statCardSx = openredStatCardSx;
+  const statCardContentSx = openredStatCardContentSx;
 
   const getRadiationColor = useCallback((value: number): [number, number, number, number] => {
     // value en µSv/h (ya dividido por 100 desde el backend)
@@ -181,55 +195,70 @@ const StatisticsPage: React.FC = () => {
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: '#ffffff',
-      py: 4
+      background: pageBg,
     }}>
-      <Container maxWidth="xl">
-        {/* Modern Header */}
-        <Box sx={{
-          textAlign: 'center',
-          mb: 6,
-          position: 'relative',
-          '&::before': {
-            content: '""',
+      {/* Black Header with Wave */}
+      <Box sx={{
+        background: '#000000',
+        pt: 8,
+        pb: 10,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <Container maxWidth="xl">
+          <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+            <Typography
+              variant="h2"
+              component="h1"
+              fontFamily="'Bricolage Grotesque', 'Montserrat', sans-serif"
+              fontWeight="600"
+              sx={{
+                color: '#E4EEFA',
+                mb: 2,
+                letterSpacing: -1
+              }}
+            >
+              Estadísticas del Proyecto
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: '#E4EEFA',
+                maxWidth: 600,
+                mx: 'auto',
+                fontWeight: 400,
+                lineHeight: 1.6
+              }}
+            >
+              Descubre el impacto y alcance de la comunidad Openred a través de datos detallados
+            </Typography>
+          </Box>
+        </Container>
+        {/* Wave SVG */}
+        <Box
+          component="svg"
+          sx={{
             position: 'absolute',
-            top: -20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 100,
-            height: 4,
-            background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            borderRadius: 2,
-          }
-        }}>
-          <Typography
-            variant="h2"
-            component="h1"
-            fontWeight="800"
-            sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 70%)`,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 2,
-              letterSpacing: -1
-            }}
-          >
-            Estadísticas del Proyecto
-          </Typography>
-          <Typography
-            variant="h6"
-            color="text.secondary"
-            sx={{
-              maxWidth: 600,
-              mx: 'auto',
-              fontWeight: 400,
-              lineHeight: 1.6
-            }}
-          >
-            Descubre el impacto y alcance de la comunidad OpenRed a través de datos detallados
-          </Typography>
+            bottom: -1,
+            left: 0,
+            width: '100%',
+            height: 180,
+            display: 'block',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+          viewBox="0 0 1440 180"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0,0 C480,180 960,180 1440,0 L1440,180 L0,180 Z"
+            fill={pageBg}
+          />
         </Box>
+      </Box>
+
+      {/* Content Area */}
+      <Container maxWidth="xl" sx={{ mt: 4, pb: 6, position: 'relative', zIndex: 2 }}>
 
         {/* Main Layout: Stats Left, Map Right */}
         <Grid container spacing={4}>
@@ -241,103 +270,63 @@ const StatisticsPage: React.FC = () => {
                 <Grid container spacing={3} sx={{ mb: 4 }}>
                   {/* Tarjetas principales minimalistas */}
                   <Grid item xs={12} sm={6}>
-                    <Card sx={{
-                      boxShadow: 'none',
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                      borderRadius: 3,
-                      bgcolor: 'background.paper',
-                      p: 0,
-                      minHeight: 120,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                    }}>
-                      <CardContent sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <TimelineIcon sx={{ mr: 1, color: 'primary.main', fontSize: 22 }} />
-                          <Typography variant="overline" color="primary" fontWeight="bold" fontSize={13}>
+                    <Card sx={statCardSx}>
+                      <CardContent sx={statCardContentSx}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <TimelineIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                             TOTAL MEDICIONES
                           </Typography>
                         </Box>
-                        <Typography variant="h4" fontWeight="bold" color="primary.main" sx={{ letterSpacing: -1 }}>
+                        <Typography className="statNumber" variant="h2" sx={{}}>
                           {globalStats.totals.measurements.toLocaleString()}
                         </Typography>
                       </CardContent>
                     </Card>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Card sx={{
-                      boxShadow: 'none',
-                      border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`,
-                      borderRadius: 3,
-                      bgcolor: 'background.paper',
-                      p: 0,
-                      minHeight: 120,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                    }}>
-                      <CardContent sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <RouteIcon sx={{ mr: 1, color: 'success.main', fontSize: 22 }} />
-                          <Typography variant="overline" color="success.main" fontWeight="bold" fontSize={13}>
+                    <Card sx={statCardSx}>
+                      <CardContent sx={statCardContentSx}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <RouteIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                             TRACKS REGISTRADOS
                           </Typography>
                         </Box>
-                        <Typography variant="h4" fontWeight="bold" color="success.main" sx={{ letterSpacing: -1 }}>
+                        <Typography className="statNumber" variant="h2" sx={{}}>
                           {globalStats.totals.tracks}
                         </Typography>
                       </CardContent>
                     </Card>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Card sx={{
-                      boxShadow: 'none',
-                      border: `1px solid ${alpha(theme.palette.warning.main, 0.12)}`,
-                      borderRadius: 3,
-                      bgcolor: 'background.paper',
-                      p: 0,
-                      minHeight: 120,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                    }}>
-                      <CardContent sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <RadiationIcon sx={{ mr: 1, color: 'warning.main', fontSize: 22 }} />
-                          <Typography variant="overline" color="warning.main" fontWeight="bold" fontSize={13}>
+                    <Card sx={statCardSx}>
+                      <CardContent sx={statCardContentSx}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <RadiationIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                             DOSIS MÁXIMA
                           </Typography>
                         </Box>
-                        <Typography variant="h4" fontWeight="bold" color="warning.main" sx={{ letterSpacing: -1 }}>
-                          {globalStats.records.highest_dose_rate.toFixed(2)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" fontSize={12}>
-                          µSv/h
+                        <Typography className="statNumber" variant="h2" sx={{}}>
+                          {globalStats.records.highest_dose_rate != null ? globalStats.records.highest_dose_rate.toFixed(2) : '—'}
+                          <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                            µSv/h
+                          </Typography>
                         </Typography>
                       </CardContent>
                     </Card>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Card sx={{
-                      boxShadow: 'none',
-                      border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
-                      borderRadius: 3,
-                      bgcolor: 'background.paper',
-                      p: 0,
-                      minHeight: 120,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                    }}>
-                      <CardContent sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <PublicIcon sx={{ mr: 1, color: 'info.main', fontSize: 22 }} />
-                          <Typography variant="overline" color="info.main" fontWeight="bold" fontSize={13}>
+                    <Card sx={statCardSx}>
+                      <CardContent sx={statCardContentSx}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <PublicIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                             CONTRIBUIDORES
                           </Typography>
                         </Box>
-                        <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ letterSpacing: -1 }}>
+                        <Typography className="statNumber" variant="h2" sx={{}}>
                           {globalStats.totals.contributors}
                         </Typography>
                       </CardContent>
@@ -353,58 +342,38 @@ const StatisticsPage: React.FC = () => {
                 <Grid container spacing={3} sx={{ mb: 4 }}>
               {/* Distance Statistics */}
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <RouteIcon sx={{ mr: 1, color: 'primary.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="primary" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <RouteIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         DISTANCIA TOTAL
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="primary.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.distance.total_km.toFixed(2)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      km recorridos
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        km
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <TrophyIcon sx={{ mr: 1, color: 'success.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="success.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <TrophyIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         TRACK MÁS LARGO
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="success.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.distance.longest_track_km.toFixed(2)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      km en un track
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        km
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
@@ -412,58 +381,38 @@ const StatisticsPage: React.FC = () => {
 
               {/* Records Statistics */}
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.error.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <RadiationIcon sx={{ mr: 1, color: 'error.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="error" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <RadiationIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         DOSIS MÍNIMA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="error.main" sx={{ letterSpacing: -1 }}>
-                      {globalStats.records.lowest_dose_rate.toFixed(3)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      µSv/h
+                    <Typography className="statNumber" variant="h2" sx={{}}>
+                      {globalStats.records.lowest_dose_rate != null ? globalStats.records.lowest_dose_rate.toFixed(3) : '—'}
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        µSv/h
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.warning.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <SpeedIcon sx={{ mr: 1, color: 'warning.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="warning.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <SpeedIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         MÁXIMO MEDICIONES
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="warning.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.records.most_measurements_track.toLocaleString()}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      en un solo track
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        en un track
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
@@ -471,116 +420,76 @@ const StatisticsPage: React.FC = () => {
 
               {/* Geographic Coverage */}
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PlaceIcon sx={{ mr: 1, color: 'info.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="info.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         LATITUD MÍNIMA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.geographic.bbox.min_lat.toFixed(4)}°
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      coordenada sur
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        sur
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PlaceIcon sx={{ mr: 1, color: 'info.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="info.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         LATITUD MÁXIMA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.geographic.bbox.max_lat.toFixed(4)}°
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      coordenada norte
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        norte
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PlaceIcon sx={{ mr: 1, color: 'info.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="info.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         LONGITUD MÍNIMA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.geographic.bbox.min_lon.toFixed(4)}°
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      coordenada oeste
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        oeste
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PlaceIcon sx={{ mr: 1, color: 'info.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="info.main" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         LONGITUD MÁXIMA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.geographic.bbox.max_lon.toFixed(4)}°
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      coordenada este
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
+                        este
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
@@ -588,58 +497,32 @@ const StatisticsPage: React.FC = () => {
 
               {/* Fun Facts */}
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.secondary.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PublicIcon sx={{ mr: 1, color: 'secondary.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="secondary" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <PublicIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         VUELTAS A LA TIERRA
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="secondary.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.fun_facts.earth_circumferences.toFixed(4)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      distancia equivalente
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <TrophyIcon sx={{ mr: 1, color: 'primary.main', fontSize: 22 }} />
-                      <Typography variant="overline" color="primary" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <TrophyIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         MARATONES
                       </Typography>
                     </Box>
-                    <Typography variant="h4" fontWeight="bold" color="primary.main" sx={{ letterSpacing: -1 }}>
+                    <Typography className="statNumber" variant="h2" sx={{}}>
                       {globalStats.fun_facts.marathon_equivalents.toFixed(1)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      distancia recorrida
                     </Typography>
                   </CardContent>
                 </Card>
@@ -647,29 +530,19 @@ const StatisticsPage: React.FC = () => {
 
               {/* Date Range */}
               <Grid item xs={12}>
-                <Card sx={{
-                  boxShadow: 'none',
-                  border: `1px solid ${alpha(theme.palette.grey[500], 0.12)}`,
-                  borderRadius: 3,
-                  bgcolor: 'background.paper',
-                  p: 0,
-                  minHeight: 120,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <ClockIcon sx={{ mr: 1, color: 'grey.600', fontSize: 22 }} />
-                      <Typography variant="overline" color="grey.600" fontWeight="bold" fontSize={13}>
+                <Card sx={statCardSx}>
+                  <CardContent sx={statCardContentSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <ClockIcon sx={{ color: 'inherit', fontSize: 18 }} />
+                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
                         PERÍODO DE DATOS
                       </Typography>
                     </Box>
-                    <Typography variant="h5" fontWeight="bold" color="grey.700" sx={{ letterSpacing: -0.5 }}>
+                    <Typography className="statValue" variant="h4" fontWeight="700" sx={{ mt: 1, letterSpacing: -0.5 }}>
                       {formatDate(globalStats.date_range.first)} - {formatDate(globalStats.date_range.last)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontSize={12}>
-                      {globalStats.date_range.days_active} {globalStats.date_range.days_active === 1 ? 'día' : 'días'} activo{globalStats.date_range.days_active > 1 ? 's' : ''}
+                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 2, fontWeight: 400 }}>
+                        ({globalStats.date_range.days_active} {globalStats.date_range.days_active === 1 ? 'día' : 'días'} activo{globalStats.date_range.days_active > 1 ? 's' : ''})
+                      </Typography>
                     </Typography>
                   </CardContent>
                 </Card>
@@ -681,17 +554,29 @@ const StatisticsPage: React.FC = () => {
           {/* RIGHT COLUMN - Map */}
           <Grid item xs={12} lg={6}>
             {heatmapStats && (
-              <Paper sx={{ p: 3 }}>
-              <Box sx={{ 
-                position: 'relative', 
-                height: 600, 
-                width: '100%',
-                borderRadius: 2,
-                overflow: 'hidden',
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                mb: 2,
-                bgcolor: `rgb(${BACKGROUND_COLOR.join(',')})`,
-              }}>
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, px: 1 }}>
+                  <PublicIcon sx={{ color: '#000000', fontSize: 18 }} />
+                  <Typography variant="subtitle2" sx={{ color: '#000000', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
+                    MAPA
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  bgcolor: '#000000',
+                  borderRadius: 3,
+                  p: 3,
+                  boxShadow: 'none',
+                }}>
+                <Box sx={{ 
+                  position: 'relative', 
+                  height: 520, 
+                  width: '100%',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  border: 'none',
+                  mb: 0,
+                  bgcolor: `rgb(${BACKGROUND_COLOR.join(',')})`,
+                }}>
                 <DeckGL
                   views={new GlobeView({ 
                     resolution: GLOBE_RESOLUTION
@@ -705,13 +590,14 @@ const StatisticsPage: React.FC = () => {
                   layers={heatmapLayer ? [...backgroundLayers, heatmapLayer] : backgroundLayers}
                 />
                 {hoveredHex && (
-                  <Box sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'background.paper', p: 2, borderRadius: 1, boxShadow: 1 }}>
-                    <Typography variant="body2">Medidas: {hoveredHex.count}</Typography>
-                    <Typography variant="body2">Dosis promedio: {hoveredHex.avg_dose_rate.toFixed(3)} µSv/h</Typography>
+                  <Box sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'rgba(0,0,0,0.85)', p: 2, borderRadius: 1, boxShadow: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Medidas: {hoveredHex.count}</Typography>
+                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Dosis promedio: {hoveredHex.avg_dose_rate.toFixed(3)} µSv/h</Typography>
                   </Box>
                 )}
               </Box>
-            </Paper>
+              </Box>
+            </Box>
           )}
         </Grid>
       </Grid>

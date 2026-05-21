@@ -1,6 +1,6 @@
 # Solución de errores CORS - OpenRed React Frontend
 
-## 🚨 Problema
+## Problema
 Error de CORS al intentar acceder a `/api/measurements` desde el frontend React.
 
 ```
@@ -8,7 +8,7 @@ Access to XMLHttpRequest at 'http://localhost:8000/api/measurements/'
 from origin 'http://localhost:3000' has been blocked by CORS policy
 ```
 
-## ✅ Soluciones Implementadas
+## Soluciones Implementadas
 
 ### 1. Proxy en package.json (Desarrollo)
 Añadido proxy para redirigir peticiones API al backend Django:
@@ -50,7 +50,7 @@ async getMeasurements(): Promise<Measurement[]> {
 }
 ```
 
-## 🛠️ Configuración del Backend Django (Opcional)
+## Configuración del Backend Django (Opcional)
 
 Si necesitas configurar CORS en el backend Django:
 
@@ -84,7 +84,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = True
 ```
 
-## 🚀 Cómo usar
+## Cómo usar
 
 ### Desarrollo con Backend
 1. Asegúrate que Django está corriendo en puerto 8000
@@ -101,7 +101,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 2. Asegúrate que el backend Django permite CORS desde tu dominio
 3. Ejecuta `npm run build` para generar build de producción
 
-## 📱 Verificación
+## Verificación
 
 ### Comprobar que funciona:
 1. Abre las herramientas de desarrollador (F12)
@@ -111,12 +111,12 @@ CORS_ALLOW_ALL_ORIGINS = True
 5. Si el backend no está disponible, verás warnings en Console pero la app funcionará con datos mock
 
 ### Signos de éxito:
-- ✅ No hay errores CORS en Console
-- ✅ El mapa muestra puntos de medición
-- ✅ Los filtros funcionan correctamente
-- ✅ La aplicación carga sin errores críticos
+- No hay errores CORS en Console
+- El mapa muestra puntos de medición
+- Los filtros funcionan correctamente
+- La aplicación carga sin errores críticos
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Si sigues viendo errores CORS:
 1. Verifica que el proxy está configurado en package.json
@@ -137,12 +137,12 @@ REACT_APP_API_URL=http://localhost:8000  # Solo para producción
 REACT_APP_MAPBOX_TOKEN=tu_token_aqui     # Requerido para mapas
 ```
 
-## 📊 Estado actual
+## Estado actual
 
-✅ **Funcional**: La aplicación funciona con o sin backend  
-✅ **Proxy configurado**: Elimina errores CORS en desarrollo  
-✅ **Fallback implementado**: Datos de prueba si backend no disponible  
-✅ **Mapas funcionando**: Deck.gl + Mapbox con datos mock  
-✅ **Filtros operativos**: Todos los filtros funcionan con datos mock  
+**Funcional**: La aplicación funciona con o sin backend  
+**Proxy configurado**: Elimina errores CORS en desarrollo  
+**Fallback implementado**: Datos de prueba si backend no disponible  
+**Mapas funcionando**: Deck.gl + Mapbox con datos mock  
+**Filtros operativos**: Todos los filtros funcionan con datos mock  
 
 La aplicación está lista para desarrollo y testing sin dependencias del backend Django.

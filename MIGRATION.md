@@ -2,24 +2,24 @@
 
 Esta guía documenta el proceso de migración del frontend de Django templates al nuevo frontend en React para el proyecto OpenRed.
 
-## 🎯 Objetivo
+## Objetivo
 
 Reemplazar el frontend basado en templates de Django con una aplicación React moderna, manteniendo toda la funcionalidad existente y mejorando la experiencia de usuario.
 
-## 📊 Comparación de funcionalidades
+## Comparación de funcionalidades
 
 | Funcionalidad | Django Templates | React Frontend | Estado |
 |---------------|------------------|----------------|---------|
-| Autenticación | ✅ | ✅ | Migrado |
-| Gestión de dispositivos | ✅ | ✅ | Migrado |
-| Visualización de mapa | ✅ | ✅ | Mejorado con Deck.gl |
-| Filtros de mediciones | ✅ | ✅ | Mejorado |
-| Campañas y misiones | ✅ | ✅ | Migrado |
-| Perfil de usuario | ✅ | ✅ | Mejorado |
-| Panel de administración | ✅ | ❌ | Pendiente |
-| Responsive design | ⚠️ | ✅ | Mejorado |
+| Autenticación | | | Migrado |
+| Gestión de dispositivos | | | Migrado |
+| Visualización de mapa | | | Mejorado con Deck.gl |
+| Filtros de mediciones | | | Mejorado |
+| Campañas y misiones | | | Migrado |
+| Perfil de usuario | | | Mejorado |
+| Panel de administración | | | Pendiente |
+| Responsive design | | | Mejorado |
 
-## 🛠️ Proceso de migración realizado
+## Proceso de migración realizado
 
 ### 1. Análisis del código Django existente
 
@@ -185,7 +185,7 @@ REACT_APP_MAPBOX_TOKEN=tu_token_mapbox_aqui
 ```
 
 ---
-## 🔄 Plan de despliegue
+## Plan de despliegue
 
 ### Opción 1: Migración gradual (Recomendada)
 
@@ -255,7 +255,7 @@ server {
    - Servir React build desde Django
    - Configurar fallback para SPA routing
 
-## 📋 Lista de verificación pre-migración
+## Lista de verificación pre-migración
 
 ### Backend Django
 - [ ] Todos los endpoints API funcionando
@@ -279,7 +279,7 @@ server {
 - [ ] Monitoreo configurado
 - [ ] Backup de la versión anterior
 
-## 🐛 Problemas conocidos y soluciones
+## Problemas conocidos y soluciones
 
 ### 1. CORS Issues
 ```python
@@ -313,7 +313,7 @@ if (navigator.geolocation) {
 }
 ```
 
-## 📈 Métricas de migración
+## Métricas de migración
 
 ### Performance
 - **Bundle size**: ~2.5MB (React + deps)
@@ -333,7 +333,7 @@ if (navigator.geolocation) {
 - **Componentes reutilizables**: 12
 - **Type coverage**: 98% (TypeScript)
 
-## 🚀 Próximos pasos
+## Próximos pasos
 
 1. **Testing exhaustivo**
    - Tests unitarios para componentes
@@ -356,7 +356,7 @@ if (navigator.geolocation) {
    - Error tracking
    - Performance monitoring
 
-## 👥 Equipo y roles
+## Equipo y roles
 
 - **Frontend Lead**: Responsable de la arquitectura React
 - **Backend Lead**: Responsable de APIs y migración
@@ -364,7 +364,7 @@ if (navigator.geolocation) {
 - **QA**: Responsable de testing
 - **Product Owner**: Validación de funcionalidades
 
-## 📞 Contacto y soporte
+## Contacto y soporte
 
 Para dudas sobre la migración:
 - **Email**: frasanz@ibercivis.es

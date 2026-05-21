@@ -11,7 +11,8 @@ import {
   LoginCredentials,
   RegisterData,
   ApiResponse,
-  DeviceFormData
+  DeviceFormData,
+  RadiationSpectrumMarker
 } from '../types';
 import {
   ActivityStatistics,
@@ -124,7 +125,7 @@ class ApiService {
     } catch (error: any) {
       // Mejorar el manejo de errores
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        throw new Error('No se puede conectar al servidor. Asegúrate de que el backend Django esté ejecutándose en http://localhost:8000');
+        throw new Error('No se puede conectar al servidor. Asegúrate de que el backend Django esté ejecutándose en https://dev.ibercivis.es:8000');
       }
       
       if (error.response?.status === 400) {
@@ -141,6 +142,28 @@ class ApiService {
         }
       }
       
+      throw error;
+    }
+  }
+
+  async loginWithGoogle(accessToken: string): Promise<AuthTokens> {
+    try {
+      // Limpiar cualquier token previo
+      this.clearTokens();
+      
+      const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+      
+      const response: AxiosResponse<AuthTokens> = await this.api.post('/dj-rest-auth/google/', {
+        access_token: accessToken,
+        client_id: clientId  // Enviar client_id para que el backend sepa cuál app usar
+      });
+      
+      this.setTokens(response.data);
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        throw new Error('No se puede conectar al servidor. Asegúrate de que el backend Django esté ejecutándose en https://dev.ibercivis.es:8000');
+      }
       throw error;
     }
   }
@@ -239,10 +262,10 @@ class ApiService {
   }
 
   // Mission methods
-  async getMissions(): Promise<Mission[]> {
+  async getMissions(projectId: number): Promise<Mission[]> {
     try {
-      const response: AxiosResponse<ApiResponse<Mission>> = await this.api.get('/api/missions/');
-      console.log('🔍 getMissions raw response.data:', response.data);
+      const response: AxiosResponse<ApiResponse<Mission>> = await this.api.get(`/api/projects/${projectId}/missions/`);
+      console.log('getMissions raw response.data:', response.data);
       
       // Manejar diferentes formatos de respuesta
       if (Array.isArray(response.data)) {
@@ -258,17 +281,13 @@ class ApiService {
     }
   }
 
-  async getCampaigns(missionId?: number, projectId?: number): Promise<Campaign[]> {
+  async getCampaigns(missionId: number): Promise<Campaign[]> {
     try {
-      // Construir URL con query params si se especifica missionId y/o projectId
-      let url = '/api/campaigns/';
-      const params: string[] = [];
-      if (missionId) params.push(`mission=${missionId}`);
-      if (projectId) params.push(`project=${projectId}`);
-      if (params.length > 0) url += `?${params.join('&')}`;
+      // Usar endpoint anidado de missions
+      const url = `/api/missions/${missionId}/campaigns/`;
 
       const response: AxiosResponse<ApiResponse<Campaign>> = await this.api.get(url);
-      console.log('🔍 getCampaigns raw response.data:', response.data);
+      console.log('getCampaigns raw response.data:', response.data);
 
       // Manejar diferentes formatos de respuesta
       if (Array.isArray(response.data)) {
@@ -287,7 +306,7 @@ class ApiService {
   // Track management
   async getTracks(): Promise<Track[]> {
     const response: AxiosResponse<ApiResponse<Track>> = await this.api.get('/api/tracks/my_tracks/');
-    console.log('🔍 getTracks response:', response.data);
+    console.log('getTracks response:', response.data);
     
     // Manejar diferentes formatos de respuesta
     if (Array.isArray(response.data)) {
@@ -346,10 +365,20 @@ class ApiService {
     campaign?: number;
     track?: number;
     mission?: number;
+    measurementType?: 'radiation' | 'light_pollution';
+    north?: number;
+    south?: number;
+    east?: number;
+    west?: number;
   }): Promise<Measurement[]> {
     try {
-      // Por defecto usar el servicio de radiación
-      return await this.measurements.radiation.getMeasurements(params);
+      // Determinar qué servicio usar basado en measurementType
+      const measurementType = params?.measurementType || 'radiation';
+      const service = measurementType === 'light_pollution'
+        ? this.measurements.lightPollution
+        : this.measurements.radiation;
+      
+      return await service.getMeasurements(params as any);
     } catch (error) {
       console.warn('Failed to fetch measurements from backend, using mock data:', error);
       // Return mock data as fallback
@@ -422,6 +451,95 @@ class ApiService {
       : this.measurements.lightPollution;
 
     return service.getH3Aggregation(params);
+  }
+
+  // Histograma de radiación
+  async getRadiationHistogram(params: {
+    project?: number;
+    mission?: number;
+    campaign?: number;
+    start_date?: string;
+    end_date?: string;
+    min_altitude?: number;
+    max_altitude?: number;
+    min_speed?: number;
+    max_speed?: number;
+    min_dose_rate?: number;
+    max_dose_rate?: number;
+    north?: number;
+    south?: number;
+    east?: number;
+    west?: number;
+  }): Promise<{
+    total: number;
+    min: number;
+    max: number;
+    bins: { label: string; min: number; max: number | null; count: number }[];
+  }> {
+    const response = await this.api.get('/api/radiation-measurements/histogram/', { params });
+    return response.data;
+  }
+
+  // Descarga de report de radiación
+  async downloadRadiationReport(params: Record<string, any>): Promise<void> {
+    const response = await this.api.get('/api/radiation-measurements/report/', {
+      params,
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const disposition = response.headers['content-disposition'];
+    const filename = disposition
+      ? disposition.split('filename=')[1]?.replace(/"/g, '') ?? 'report.csv'
+      : 'report.pdf';
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // Descarga de report de contaminación lumínica
+  async downloadLightPollutionReport(params: Record<string, any>): Promise<void> {
+    const response = await this.api.get('/api/light-pollution-measurements/report/', {
+      params,
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const disposition = response.headers['content-disposition'];
+    const filename = disposition
+      ? disposition.split('filename=')[1]?.replace(/"/g, '') ?? 'report.csv'
+      : 'report.pdf';
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // Espectros de radiación
+  // Marcadores ligeros para el mapa: array plano (no paginado) con { id, latitude, longitude }.
+  // Soporta filtros project/track y bbox (north/south/east/west); bbox inválido → 400.
+  async getRadiationSpectraMap(params?: {
+    project?: number;
+    track?: number;
+    north?: number;
+    south?: number;
+    east?: number;
+    west?: number;
+  }): Promise<RadiationSpectrumMarker[]> {
+    const response = await this.api.get('/api/radiation-spectra/map/', { params });
+    return Array.isArray(response.data) ? response.data : (response.data?.results ?? []);
+  }
+
+  // Detalle completo de un espectro (pesado): counts (1024), a0/a1/a2, durationSec, etc.
+  // Se usará al pulsar un marcador para pintar el histograma.
+  async getRadiationSpectrumDetail(id: number): Promise<any> {
+    const response = await this.api.get(`/api/radiation-spectra/${id}/`);
+    return response.data;
   }
 
   // Profile management

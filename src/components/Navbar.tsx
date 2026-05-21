@@ -11,7 +11,7 @@ import {
   Avatar,
   useTheme,
 } from '@mui/material';
-import { AccountCircle, Logout, DeviceHub, Person, Route, BarChart } from '@mui/icons-material';
+import { AccountCircle, Logout, DeviceHub, Person, Route, BarChart, ArrowDropDown, Android } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +20,7 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [infoAnchorEl, setInfoAnchorEl] = React.useState<null | HTMLElement>(null);
   const theme = useTheme();
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -30,6 +31,14 @@ const Navbar: React.FC = () => {
     setAnchorEl(null);
   };
 
+  const handleInfoMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setInfoAnchorEl(event.currentTarget);
+  };
+
+  const handleInfoClose = () => {
+    setInfoAnchorEl(null);
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -37,11 +46,6 @@ const Navbar: React.FC = () => {
     } catch (error) {
       console.error('Logout failed:', error);
     }
-    handleClose();
-  };
-
-  const handleDevices = () => {
-    navigate('/devices');
     handleClose();
   };
 
@@ -65,9 +69,11 @@ const Navbar: React.FC = () => {
       position="static" 
       elevation={0}
       sx={{ 
-        backgroundColor: theme.palette.surface.main,
-        color: theme.palette.primary.main,
+        backgroundColor: '#000000',
+        color: '#ffffff',
         minHeight: '64px',
+        borderRadius: 0,
+        border: 'none',
       }}
     >
       <Toolbar sx={{ px: 3, minHeight: '64px !important' }}>
@@ -77,39 +83,91 @@ const Navbar: React.FC = () => {
           sx={{ 
             cursor: 'pointer',
             fontWeight: 600,
-            color: theme.palette.primary.main,
+            color: '#ffffff',
           }}
           onClick={() => navigate('/')}
         >
-          OpenRed
+          Open-red
         </Typography>
 
-        {/* Botón de Estadísticas visible siempre */}
+        {/* Espaciador para empujar el contenido a la derecha */}
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/* Dropdown de Información - visible siempre */}
         <Button
-          startIcon={<BarChart />}
-          onClick={handleStatistics}
+          endIcon={<ArrowDropDown />}
+          onClick={handleInfoMenu}
           sx={{
-            ml: 3,
             textTransform: 'none',
-            color: theme.palette.primary.main,
-            fontWeight: location.pathname === '/statistics' ? 600 : 400,
+            color: '#ffffff',
+            mr: 2,
             '&:hover': {
-              backgroundColor: theme.palette.primary.light + '20',
+              backgroundColor: 'rgba(255,255,255,0.1)',
             }
           }}
         >
-          Estadísticas
+          Información
         </Button>
-
-        {/* Espaciador para empujar el contenido de usuario a la derecha */}
-        <Box sx={{ flexGrow: 1 }} />
+        <Menu
+          anchorEl={infoAnchorEl}
+          open={Boolean(infoAnchorEl)}
+          onClose={handleInfoClose}
+          PaperProps={{
+            sx: {
+              backgroundColor: '#CDDCED',
+            }
+          }}
+        >
+          <MenuItem 
+            onClick={() => { 
+              navigate('/statistics'); 
+              handleInfoClose(); 
+            }}
+          >
+            <BarChart sx={{ mr: 1 }} />
+            Estadísticas
+          </MenuItem>
+          <MenuItem 
+            onClick={() => { 
+              navigate('/mobile-app'); 
+              handleInfoClose(); 
+            }}
+          >
+            <Android sx={{ mr: 1 }} />
+            App Móvil
+          </MenuItem>
+          <MenuItem 
+            onClick={() => { 
+              navigate('/about'); 
+              handleInfoClose(); 
+            }}
+          >
+            Acerca de
+          </MenuItem>
+          <MenuItem 
+            onClick={() => { 
+              navigate('/privacy-policy'); 
+              handleInfoClose(); 
+            }}
+          >
+            Política de Privacidad
+          </MenuItem>
+          <MenuItem 
+            onClick={() => { 
+              navigate('/terms-of-service'); 
+              handleInfoClose(); 
+            }}
+          >
+            Términos de Servicio
+          </MenuItem>
+        </Menu>
 
         {isAuthenticated ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography 
               variant="bodyMedium" 
               sx={{ 
-                color: theme.palette.primary.main,
+                color: '#ffffff',
               }}
             >
               Hola, {user?.username || user?.email.split('@')[0]}
@@ -122,9 +180,9 @@ const Navbar: React.FC = () => {
               aria-haspopup="true"
               onClick={handleMenu}
               sx={{
-                color: theme.palette.primary.main,
+                color: '#ffffff',
                 '&:hover': {
-                  backgroundColor: theme.palette.primary.light + '20',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
                 }
               }}
             >
@@ -132,8 +190,8 @@ const Navbar: React.FC = () => {
                 sx={{ 
                   width: 32, 
                   height: 32, 
-                  bgcolor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
+                  bgcolor: '#ffffff',
+                  color: '#000000',
                   fontSize: '14px',
                   fontWeight: 500,
                 }}
@@ -156,71 +214,59 @@ const Navbar: React.FC = () => {
               }}
               open={Boolean(anchorEl)}
               onClose={handleClose}
+              PaperProps={{
+                sx: {
+                  backgroundColor: '#CDDCED',
+                }
+              }}
             >
-              <MenuItem 
-                onClick={handleDevices}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.light + '20',
-                  }
-                }}
-              >
-                <DeviceHub sx={{ mr: 2, color: theme.palette.primary.main }} />
-                <Typography variant="bodyMedium">Mis Dispositivos</Typography>
-              </MenuItem>
               <MenuItem 
                 onClick={handleTracks}
                 sx={{
                   py: 1.5,
                   px: 2,
+                  color: '#000000',
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.light + '20',
+                    backgroundColor: '#E4EEFA',
                   }
                 }}
               >
-                <Route sx={{ mr: 2, color: theme.palette.primary.main }} />
-                <Typography variant="bodyMedium">Mis Tracks</Typography>
+                <Route sx={{ mr: 2, color: '#000000' }} />
+                <Typography variant="bodyMedium" sx={{ color: '#000000' }}>Mis Tracks</Typography>
               </MenuItem>
               <MenuItem 
                 onClick={handleProfile}
                 sx={{
                   py: 1.5,
                   px: 2,
+                  color: '#000000',
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.light + '20',
+                    backgroundColor: '#E4EEFA',
                   }
                 }}
               >
-                <Person sx={{ mr: 2, color: theme.palette.primary.main }} />
-                <Typography variant="bodyMedium">Mi Perfil</Typography>
+                <Person sx={{ mr: 2, color: '#000000' }} />
+                <Typography variant="bodyMedium" sx={{ color: '#000000' }}>Mi Perfil</Typography>
               </MenuItem>
               <MenuItem 
                 onClick={handleLogout}
                 sx={{
                   py: 1.5,
                   px: 2,
+                  color: '#000000',
                   '&:hover': {
-                    backgroundColor: theme.palette.error.light + '20',
+                    backgroundColor: '#E4EEFA',
                   }
                 }}
               >
-                <Logout sx={{ mr: 2, color: theme.palette.error.main }} />
-                <Typography variant="bodyMedium" color="error">Cerrar Sesión</Typography>
+                <Logout sx={{ mr: 2, color: '#F05255' }} />
+                <Typography variant="bodyMedium" sx={{ color: '#F05255' }}>Cerrar Sesión</Typography>
               </MenuItem>
             </Menu>
           </Box>
         ) : (
           <>
-            {/* Espaciador para empujar los botones a la derecha */}
-            <Box sx={{ flexGrow: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {location.pathname === '/' && (
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mr: 2 }}>
-                  Explora mediciones públicas de radiación gamma
-                </Typography>
-              )}
               <Button 
                 color="inherit" 
                 onClick={() => navigate('/login')}

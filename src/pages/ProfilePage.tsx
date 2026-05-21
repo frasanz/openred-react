@@ -9,23 +9,19 @@ import {
   Box,
   Alert,
   Snackbar,
-  Card,
-  CardContent,
+  InputAdornment,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Chip
 } from '@mui/material';
 import {
-  Person as PersonIcon,
   Email as EmailIcon,
-  AccountTree as DevicesIcon,
-  Analytics as MeasuresIcon,
-  Analytics,
-  Campaign as CampaignIcon,
-  CalendarToday as DateIcon
+  BadgeOutlined as BadgeIcon,
+  QueryStatsOutlined as MeasurementsIcon,
+  CloudOutlined as TracksIcon,
+  TrackChangesOutlined as MissionsIcon,
+  CampaignOutlined as CampaignsIcon,
+  ScienceOutlined as DoseIcon,
+  CalendarMonthOutlined as CalendarIcon
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -33,6 +29,13 @@ import * as yup from 'yup';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 import { User } from '../types';
+import {
+  OPENRED_ACCENT_RED,
+  OPENRED_NAVY,
+  OPENRED_PAGE_BG,
+  openredBoxSx,
+  openredBoxStaticSx,
+} from '../styles/boxes';
 
 interface ProfileFormData {
   email: string;
@@ -57,6 +60,10 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const pageBg = OPENRED_PAGE_BG;
+  const navy = OPENRED_NAVY;
+  const red = OPENRED_ACCENT_RED;
 
   const {
     register,
@@ -132,205 +139,245 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }}>
-        {/* Información del perfil */}
-        <Box sx={{ flex: 2 }}>
-          <Paper sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ minHeight: '100vh', background: pageBg, py: { xs: 4, md: 6 } }}>
+      <Container maxWidth="lg">
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' },
+            gap: 4,
+            alignItems: 'start',
+          }}
+        >
+          {/* Tarjeta principal: perfil + edición */}
+          <Paper
+            sx={{
+              ...openredBoxStaticSx,
+              p: { xs: 3, md: 4 },
+              borderRadius: 3,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
               <Avatar
-                sx={{ 
-                  width: 80, 
-                  height: 80, 
-                  mr: 3,
-                  bgcolor: 'primary.main',
-                  fontSize: '2rem'
+                sx={{
+                  width: 72,
+                  height: 72,
+                  bgcolor: navy,
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
                 }}
               >
                 {getInitials(user)}
               </Avatar>
-              <Box>
-                <Typography variant="h4" gutterBottom>
+
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: 500, lineHeight: 1.1, textTransform: 'none' }}
+                >
                   {getDisplayName(user)}
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  sx={{ color: 'rgba(0,0,0,0.65)', mt: 0.5, wordBreak: 'break-word' }}
+                >
                   {user.email}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  <DateIcon sx={{ fontSize: 16, mr: 1, verticalAlign: 'middle' }} />
-                  Miembro desde {formatDate(user.date_joined)}
-                </Typography>
+
+                <Chip
+                  icon={<BadgeIcon sx={{ color: 'rgba(0,0,0,0.75)' }} />}
+                  label={`Miembro desde ${formatDate(user.date_joined)}`}
+                  size="small"
+                  sx={{
+                    mt: 1,
+                    bgcolor: 'rgba(255,255,255,0.55)',
+                    border: '1px solid rgba(0,0,0,0.10)',
+                    '& .MuiChip-label': { fontSize: 12 },
+                  }}
+                />
               </Box>
             </Box>
 
-            <Divider sx={{ mb: 3 }} />
+            <Divider sx={{ mb: 3, borderColor: 'rgba(0,0,0,0.12)' }} />
 
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" sx={{ fontWeight: 500, mb: 1.5 }}>
               Editar Perfil
             </Typography>
 
             <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <TextField
-                  {...register('email')}
-                  label="Email"
-                  type="email"
-                  fullWidth
-                  error={!!errors.email}
-                  helperText={errors.email?.message}
-                  InputProps={{
-                    startAdornment: <EmailIcon sx={{ mr: 1, color: 'action.active' }} />
+              <TextField
+                {...register('email')}
+                label="Email"
+                type="email"
+                fullWidth
+                error={!!errors.email}
+                helperText={errors.email?.message}
+                sx={{
+                  mb: 3,
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: 'rgba(255,255,255,0.60)',
+                    borderRadius: 3,
+                    '& fieldset': { borderColor: 'rgba(0,0,0,0.20)' },
+                    '&:hover fieldset': { borderColor: 'rgba(0,0,0,0.35)' },
+                    '&.Mui-focused fieldset': { borderColor: navy },
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon sx={{ color: 'rgba(0,0,0,0.60)' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={loading}
+                  size="small"
+                  sx={{
+                    bgcolor: navy,
+                    '&:hover': { bgcolor: navy },
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: 999,
+                    px: 2,
                   }}
-                />
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={loading}
-                    sx={{ minWidth: 120 }}
-                  >
-                    {loading ? 'Guardando...' : 'Guardar Cambios'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => reset()}
-                    disabled={loading}
-                  >
-                    Cancelar
-                  </Button>
-                </Box>
+                >
+                  {loading ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => reset()}
+                  disabled={loading}
+                  size="small"
+                  sx={{
+                    borderColor: navy,
+                    color: navy,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderRadius: 999,
+                    px: 2,
+                    '&:hover': { borderColor: navy, bgcolor: 'rgba(7,81,164,0.06)' },
+                  }}
+                >
+                  Cancelar
+                </Button>
               </Box>
             </Box>
           </Paper>
-        </Box>
 
-        {/* Estadísticas y resumen */}
-        <Box sx={{ flex: 1 }}>
-          {/* Estadísticas */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Estadísticas
+          {/* Columna derecha: estadísticas + periodo */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Paper
+              sx={{
+                ...openredBoxSx,
+                p: { xs: 3, md: 3.5 },
+                borderRadius: 3,
+              }}
+            >
+              <Typography variant="h5" sx={{ fontWeight: 500, mb: 2 }}>
+                Tus estadísticas
               </Typography>
-              <List>
-                <ListItem>
-                  <ListItemIcon>
-                    <MeasuresIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Mediciones totales"
-                    secondary={
-                      <Chip 
-                        label={userStats?.total_measurements || 0} 
-                        size="small" 
-                        color="primary" 
-                      />
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <DevicesIcon color="secondary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Tracks"
-                    secondary={
-                      <Chip 
-                        label={userStats?.total_tracks || 0} 
-                        size="small" 
-                        color="secondary" 
-                      />
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <CampaignIcon color="info" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Misiones"
-                    secondary={
-                      <Chip 
-                        label={userStats?.total_missions || 0} 
-                        size="small" 
-                        color="info" 
-                      />
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <CampaignIcon color="success" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Campañas"
-                    secondary={
-                      <Chip 
-                        label={userStats?.total_campaigns || 0} 
-                        size="small" 
-                        color="success" 
-                      />
-                    }
-                  />
-                </ListItem>
-                <Divider sx={{ my: 1 }} />
-                <ListItem>
-                  <ListItemIcon>
-                    <Analytics color="error" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Dosis máxima"
-                    secondary={
-                      <Chip 
-                        label={userStats?.highest_dose_rate 
-                          ? `${userStats.highest_dose_rate.toFixed(3)} μSv/h` 
-                          : 'N/A'
-                        } 
-                        size="small" 
-                        color="error" 
-                      />
-                    }
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
 
-          {/* Periodo de actividad */}
-          {userStats?.first_measurement_date && (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', alignItems: 'center', columnGap: 1.5 }}>
+                  <MeasurementsIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                    Mediciones totales
+                  </Typography>
+                  <Typography className="statNumber" variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                    {userStats?.total_measurements ?? 0}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', alignItems: 'center', columnGap: 1.5 }}>
+                  <TracksIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                    Tracks
+                  </Typography>
+                  <Typography className="statNumber" variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                    {userStats?.total_tracks ?? 0}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', alignItems: 'center', columnGap: 1.5 }}>
+                  <MissionsIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                    Misiones
+                  </Typography>
+                  <Typography className="statNumber" variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                    {userStats?.total_missions ?? 0}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', alignItems: 'center', columnGap: 1.5 }}>
+                  <CampaignsIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                    Campañas
+                  </Typography>
+                  <Typography className="statNumber" variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                    {userStats?.total_campaigns ?? 0}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', alignItems: 'center', columnGap: 1.5 }}>
+                  <DoseIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                    Dosis máxima
+                  </Typography>
+                  <Typography className="statNumber" variant="h4" sx={{ fontWeight: 700, lineHeight: 1 }}>
+                    {userStats?.highest_dose_rate != null
+                      ? `${userStats.highest_dose_rate.toFixed(3)} μSv/h`
+                      : 'N/A'}
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+
+            {userStats?.first_measurement_date && (
+              <Paper
+                sx={{
+                  ...openredBoxSx,
+                  p: { xs: 3, md: 3.5 },
+                  borderRadius: 3,
+                }}
+              >
+                <Typography variant="h5" sx={{ fontWeight: 500, mb: 2 }}>
                   Periodo de Actividad
                 </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemIcon>
-                      <DateIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Primera medición"
-                      secondary={formatDate(userStats.first_measurement_date)}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <DateIcon color="secondary" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Última medición"
-                      secondary={userStats.last_measurement_date 
-                        ? formatDate(userStats.last_measurement_date)
-                        : 'N/A'
-                      }
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          )}
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr', alignItems: 'start', columnGap: 1.5 }}>
+                    <CalendarIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                        Primera medición
+                      </Typography>
+                      <Typography variant="body2" className="statUnit" sx={{ fontWeight: 500 }}>
+                        {formatDate(userStats.first_measurement_date)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '32px 1fr', alignItems: 'start', columnGap: 1.5 }}>
+                    <CalendarIcon sx={{ color: 'rgba(0,0,0,0.70)' }} />
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.70)' }}>
+                        Última medición
+                      </Typography>
+                      <Typography variant="body2" className="statUnit" sx={{ fontWeight: 500 }}>
+                        {userStats.last_measurement_date ? formatDate(userStats.last_measurement_date) : 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Paper>
+            )}
+          </Box>
         </Box>
-      </Box>
 
       {/* Snackbar para mensajes */}
       <Snackbar
@@ -347,7 +394,8 @@ const ProfilePage: React.FC = () => {
           {alert?.message}
         </Alert>
       </Snackbar>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

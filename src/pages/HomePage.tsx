@@ -14,10 +14,11 @@ const HomePage: React.FC = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { selectedProject, setSelectedProject, isRadiationProject, isLightPollutionProject } = useProjectContext();
   
-  // Hook para filtros adaptativos (solo rango temporal)
+  // Hook para filtros adaptativos
   const {
     filters: adaptiveFilters,
     updateCommonFilters,
+    updateRadiationFilters,
     persistFilters,
   } = useAdaptiveFilters(selectedProject);
   
@@ -28,6 +29,7 @@ const HomePage: React.FC = () => {
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentZoom, setCurrentZoom] = useState<number>(5.5); // Zoom inicial
+  const [viewBounds, setViewBounds] = useState<{ north: number; south: number; east: number; west: number } | undefined>(undefined);
   
   // Estado para la barra de progreso
   const [loadingProgress, setLoadingProgress] = useState({
@@ -48,13 +50,13 @@ const HomePage: React.FC = () => {
     const shouldUpdate = loaded === 0 || loaded === total || (now - lastUpdateTime.current) > 100;
     
     if (shouldUpdate) {
-      console.log(`🔄 Progress update called: ${loaded}/${total} (${percentage.toFixed(1)}%)`);
+      console.log(`Progress update called: ${loaded}/${total} (${percentage.toFixed(1)}%)`);
       lastUpdateTime.current = now;
       
       // Usar flushSync para forzar una actualización inmediata del estado
       flushSync(() => {
         setLoadingProgress(prev => {
-          console.log(`📊 Progress state changing from ${prev.loaded}/${prev.total} to ${loaded}/${total}`);
+          console.log(`Progress state changing from ${prev.loaded}/${prev.total} to ${loaded}/${total}`);
           return { loaded, total, percentage };
         });
       });
@@ -62,15 +64,16 @@ const HomePage: React.FC = () => {
   }, []);
 
   // Hook para cargar mediciones según el zoom
-  const { 
-    measurements, 
+  const {
+    measurements,
     h3Data,
     h3Resolution,
     totalMeasurements,
-    loading: dataLoading, 
+    loading: dataLoading,
     error: measurementsError,
     isUsingH3,
-    statistics
+    statistics,
+    histogramFetchParams,
   } = useMeasurementsByZoom({
     selectedProject,
     zoom: currentZoom,
@@ -78,7 +81,8 @@ const HomePage: React.FC = () => {
     onProgress: updateProgress,
     filters: adaptiveFilters,
     missionId: selectedMission,
-    campaignId: selectedCampaign
+    campaignId: selectedCampaign,
+    bounds: viewBounds
   });
   
   // Persistir filtros cuando cambien
@@ -95,20 +99,14 @@ const HomePage: React.FC = () => {
 
   // Función para cargar campañas de una misión específica
   const loadCampaignsForMission = async (missionId: number) => {
-    const projectId = selectedProject?.id;
-    if (!projectId) {
-      console.warn('⚠️ No project selected, cannot load campaigns');
-      return;
-    }
-
     setLoadingCampaigns(true);
     try {
-      console.log(`🔍 Loading campaigns for mission ${missionId} and project ${projectId}`);
-      const campaignsData = await apiService.getCampaigns(missionId, projectId);
-      console.log('✅ Campaigns loaded:', campaignsData);
+      console.log(`Loading campaigns for mission ${missionId}`);
+      const campaignsData = await apiService.getCampaigns(missionId);
+      console.log('Campaigns loaded:', campaignsData);
       setCampaigns(campaignsData);
     } catch (err) {
-      console.error('❌ Error loading campaigns:', err);
+      console.error('Error loading campaigns:', err);
       setCampaigns([]);
     } finally {
       setLoadingCampaigns(false);
@@ -125,15 +123,15 @@ const HomePage: React.FC = () => {
 
     const loadMissions = async () => {
       try {
-        console.log('🔍 Loading missions...');
-        const missionsData = await apiService.getMissions();
+        console.log('Loading missions for project:', selectedProject.id);
+        const missionsData = await apiService.getMissions(selectedProject.id);
         if (!controller.signal.aborted) {
-          console.log('✅ Missions loaded:', missionsData.length);
+          console.log('Missions loaded:', missionsData.length);
           setMissions(missionsData);
         }
       } catch (missionError) {
         if (!controller.signal.aborted) {
-          console.log('⚠️ Missions not loaded (may require authentication):', missionError);
+          console.log('Missions not loaded (may require authentication):', missionError);
         }
       }
     };
@@ -147,8 +145,27 @@ const HomePage: React.FC = () => {
   }, [selectedProject?.id]);
 
   // Callback para manejar cambios de zoom desde el MapComponent
-  const handleZoomChange = useCallback((newZoom: number) => {
+  const handleZoomChange = useCallback((newZoom: number, bounds?: { north: number; south: number; east: number; west: number }) => {
     setCurrentZoom(newZoom);
+    if (bounds) {
+      setViewBounds(bounds);
+    }
+  }, []);
+  
+  // Ref para throttling de viewport changes
+  const viewportChangeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Callback para manejar cambios de viewport (pan/drag) con throttling
+  const handleViewportChange = useCallback((bounds: { north: number; south: number; east: number; west: number }) => {
+    // Cancelar timeout anterior si existe
+    if (viewportChangeTimerRef.current) {
+      clearTimeout(viewportChangeTimerRef.current);
+    }
+    
+    // Establecer nuevo timeout - solo actualizar después de 200ms de inactividad
+    viewportChangeTimerRef.current = setTimeout(() => {
+      setViewBounds(bounds);
+    }, 200);
   }, []);
 
   // Handlers para cambios de misión y campaña
@@ -201,9 +218,10 @@ const HomePage: React.FC = () => {
           loading={dataLoading}
           selectedProject={selectedProject}
           onProjectChange={setSelectedProject}
-          // Solo filtros de rango temporal
+          // Filtros adaptativos
           adaptiveFilters={adaptiveFilters}
           onCommonFiltersChange={updateCommonFilters}
+          onRadiationFiltersChange={updateRadiationFilters}
           // Filtros de misión y campaña
           missions={missions}
           selectedMission={selectedMission}
@@ -215,9 +233,12 @@ const HomePage: React.FC = () => {
           h3Data={h3Data}
           h3Resolution={h3Resolution}
           isUsingH3={isUsingH3}
+          viewBounds={viewBounds}
           onZoomChange={handleZoomChange}
+          onViewportChange={handleViewportChange}
           totalMeasurements={totalMeasurements}
           statistics={statistics}
+          histogramFetchParams={histogramFetchParams}
         />
       </Box>
       

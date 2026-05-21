@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script para limpiar localStorage y reiniciar la sesión
 
-echo "🧹 Limpiando localStorage del navegador..."
+echo "Limpiando localStorage del navegador..."
 echo ""
 echo "Para limpiar completamente la sesión, ejecuta estos comandos en la consola del navegador:"
 echo ""
@@ -19,7 +19,7 @@ echo "window.location.reload();"
 echo ""
 echo "Después intenta hacer login nuevamente."
 echo ""
-echo "🔧 Si el problema persiste, verifica que:"
-echo "1. El backend Django esté ejecutándose en http://localhost:8000"
+echo "Si el problema persiste, verifica que:"
+echo "1. El backend Django esté ejecutándose en https://dev.ibercivis.es:8000"
 echo "2. Tengas un usuario válido y verificado en la base de datos"
 echo "3. No haya cookies o datos de sesión conflictivos"

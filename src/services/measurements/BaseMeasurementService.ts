@@ -11,6 +11,12 @@ export interface MeasurementFilter {
   min_accuracy?: number;
   max_accuracy?: number;
   data_quality?: string;
+  min_altitude?: number;
+  max_altitude?: number;
+  min_speed?: number;
+  max_speed?: number;
+  min_dose_rate?: number;
+  max_dose_rate?: number;
 }
 
 export interface LoadOptions {
@@ -71,7 +77,7 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
   ): Promise<T[]> {
     // Evitar múltiples cargas simultáneas (útil en StrictMode)
     if (this.loadingPromise) {
-      console.log('⚠️ Already loading measurements, returning existing promise');
+      console.log('Already loading measurements, returning existing promise');
       return this.loadingPromise;
     }
 
@@ -86,23 +92,23 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
           knownTotal
         } = options;
 
-        console.log(`🔧 Starting getMeasurementsWithProgress with options:`, options);
+        console.log(`Starting getMeasurementsWithProgress with options:`, options);
 
         // 1. Obtener conteo total
         let total: number;
         if (knownTotal !== undefined) {
           total = knownTotal;
-          console.log(`📊 Using known total count: ${total}`);
+          console.log(`Using known total count: ${total}`);
         } else {
-          console.log(`📊 Getting total count for project ${projectId || 'all'}...`);
+          console.log(`Getting total count for project ${projectId || 'all'}...`);
           total = await this.getMeasurementsCount(projectId);
-          console.log(`📊 Total count received: ${total}`);
+          console.log(`Total count received: ${total}`);
         }
         
         onProgress(0, total);
 
         if (total === 0) {
-          console.log(`⚠️ No measurements found, returning empty array`);
+          console.log(`No measurements found, returning empty array`);
           return [];
         }
 
@@ -129,20 +135,20 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
 
         const totalPages = Math.ceil(total / optimizedPageSize);
 
-        console.log(`🚀 Loading strategy: ${total} measurements, ${totalPages} pages of ${optimizedPageSize} items each, ${shouldUseParallel ? `${optimizedMaxConcurrent} concurrent` : 'sequential'}`);
+        console.log(`Loading strategy: ${total} measurements, ${totalPages} pages of ${optimizedPageSize} items each, ${shouldUseParallel ? `${optimizedMaxConcurrent} concurrent` : 'sequential'}`);
 
         let result: T[];
         if (!shouldUseParallel || totalPages === 1) {
-          console.log(`🔄 Using sequential loading...`);
+          console.log(`Using sequential loading...`);
           result = await this.loadSequential(totalPages, optimizedPageSize, total, onProgress, projectId);
         } else {
-          console.log(`⚡ Using parallel loading...`);
+          console.log(`Using parallel loading...`);
           result = await this.loadParallel(totalPages, optimizedPageSize, total, optimizedMaxConcurrent, onProgress, projectId);
         }
 
         return result;
       } catch (error) {
-        console.error('❌ Error loading measurements with progress:', error);
+        console.error('Error loading measurements with progress:', error);
         throw error;
       } finally {
         this.loadingPromise = null;
@@ -170,11 +176,11 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
   ): Promise<T[]> {
     let allMeasurements: T[] = [];
     
-    console.log(`📚 Starting sequential load: ${totalPages} pages, ${total} total items expected`);
+    console.log(`Starting sequential load: ${totalPages} pages, ${total} total items expected`);
     onProgress(0, total);
     
     for (let page = 1; page <= totalPages; page++) {
-      console.log(`📄 Loading page ${page}/${totalPages}`);
+      console.log(`Loading page ${page}/${totalPages}`);
       
       const url = this.buildPaginatedUrl(page, pageSize, projectId);
       const response = await this.api.get(url);
@@ -183,14 +189,14 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
       allMeasurements = [...allMeasurements, ...pageResults];
       
       const loadedItems = allMeasurements.length;
-      console.log(`✅ Page ${page} loaded: +${pageResults.length} items (total: ${loadedItems}/${total})`);
+      console.log(`Page ${page} loaded: +${pageResults.length} items (total: ${loadedItems}/${total})`);
       
       onProgress(loadedItems, total);
       
       await new Promise(resolve => requestAnimationFrame(resolve));
     }
     
-    console.log(`🎉 Sequential load completed: ${allMeasurements.length}/${total} items`);
+    console.log(`Sequential load completed: ${allMeasurements.length}/${total} items`);
     onProgress(total, total);
     
     return allMeasurements;
@@ -214,7 +220,7 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
     let allMeasurements: T[] = [];
     let totalLoadedItems = 0;
 
-    console.log(`🚀 Starting parallel load: ${totalPages} pages in ${pageChunks.length} chunks, ${total} total items expected`);
+    console.log(`Starting parallel load: ${totalPages} pages in ${pageChunks.length} chunks, ${total} total items expected`);
     onProgress(0, total);
 
     for (const chunk of pageChunks) {
@@ -237,14 +243,14 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
       allMeasurements.push(...chunkMeasurements);
       totalLoadedItems += itemsInThisChunk;
 
-      console.log(`📦 Chunk completed: +${itemsInThisChunk} items (total loaded: ${totalLoadedItems}/${total})`);
+      console.log(`Chunk completed: +${itemsInThisChunk} items (total loaded: ${totalLoadedItems}/${total})`);
 
       onProgress(totalLoadedItems, total);
 
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    console.log(`🎉 Finished loading: ${totalLoadedItems} items out of ${total} expected`);
+    console.log(`Finished loading: ${totalLoadedItems} items out of ${total} expected`);
 
     onProgress(total, total);
 
@@ -279,7 +285,7 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
     try {
       const endpoint = this.getBaseEndpoint().replace(/\/$/, '') + '/h3-aggregation/';
       const response = await this.api.get(endpoint, { params });
-      console.log(`H3 Aggregation response from ${endpoint}:`, response.data);
+      console.log(`H3 Aggregation Vertex response from ${endpoint}:`, response.data);
       
       if (Array.isArray(response.data)) {
         return { hexagons: response.data };

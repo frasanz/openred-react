@@ -11,6 +11,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
+  loginWithGoogle: (accessToken: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
@@ -158,6 +159,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (accessToken: string): Promise<void> => {
+    try {
+      dispatch({ type: 'AUTH_START' });
+      await apiService.loginWithGoogle(accessToken);
+      const user = await apiService.getCurrentUser();
+      console.log('User data after Google login:', user);
+      dispatch({ type: 'AUTH_SUCCESS', payload: user });
+    } catch (error: any) {
+      let errorMessage = 'Google login failed';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
+          errorMessage = errorData.non_field_errors[0];
+          
+          // Mejorar mensaje si el usuario ya está registrado
+          if (errorMessage.includes('already registered')) {
+            errorMessage = 'Este correo ya está registrado. Por favor, inicia sesión con tu contraseña.';
+          }
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      }
+      
+      dispatch({ type: 'AUTH_FAILURE', payload: errorMessage });
+      throw error;
+    }
+  };
+
   const register = async (userData: RegisterData): Promise<void> => {
     try {
       dispatch({ type: 'AUTH_START' });
@@ -226,6 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     ...state,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateUser,

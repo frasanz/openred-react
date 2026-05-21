@@ -26,8 +26,8 @@ export interface GlobalStatistics {
     longest_track_km: number;
   };
   records: {
-    highest_dose_rate: number;
-    lowest_dose_rate: number;
+    highest_dose_rate: number | null;
+    lowest_dose_rate: number | null;
     most_measurements_track: number;
   };
   fun_facts: {

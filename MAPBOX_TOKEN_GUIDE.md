@@ -1,10 +1,10 @@
 # Cómo obtener un token de Mapbox para OpenRed
 
-## 🗺️ ¿Por qué necesitas un token de Mapbox?
+## ¿Por qué necesitas un token de Mapbox?
 
 El token de Mapbox permite acceder a mapas base de alta calidad para la visualización con Deck.gl. Sin él, el mapa funciona en modo básico mostrando solo los puntos de medición.
 
-## 📝 Pasos para obtener tu token GRATUITO
+## Pasos para obtener tu token GRATUITO
 
 ### 1. Crear cuenta en Mapbox
 1. Ve a [mapbox.com](https://www.mapbox.com/)
@@ -33,31 +33,31 @@ El token de Mapbox permite acceder a mapas base de alta calidad para la visualiz
 npm start
 ```
 
-## ✅ Verificar que funciona
+## Verificar que funciona
 
 1. Abre la aplicación en el navegador
 2. Deberías ver mapas detallados en lugar del fondo gris
 3. La alerta amarilla de "Token no configurado" debería desaparecer
 
-## 🔒 Límites gratuitos de Mapbox
+## Límites gratuitos de Mapbox
 
 - **50,000 cargas de mapa por mes** (más que suficiente para desarrollo)
 - **Uso no comercial** está incluido
 - Si necesitas más, puedes actualizar tu plan
 
-## 🛠️ Token de ejemplo vs Token real
+## Token de ejemplo vs Token real
 
-### ❌ Token de ejemplo (no funciona):
+### Token de ejemplo (no funciona):
 ```
 REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoiZnJhc2FueiIsImEiOiJjbGc3eWJwYTcxbGlvM29vNGc0dzh0ZjExIn0.example_token_here
 ```
 
-### ✅ Token real (funciona):
+### Token real (funciona):
 ```
 REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoidHVfdXN1YXJpbyIsImEiOiJjbG...resto_del_token_real
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Si sigues viendo errores:
 1. **Verifica que el token esté completo** - Los tokens son largos (~200 caracteres)
@@ -71,22 +71,22 @@ REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoidHVfdXN1YXJpbyIsImEiOiJjbG...resto_del_token_r
 3. Crea un nuevo token si es necesario
 4. Asegúrate de que el token tenga permisos para "Public scopes"
 
-## 🎯 Estado actual
+## Estado actual
 
 **Mientras configuras el token:**
-- ✅ El mapa funciona en modo básico
-- ✅ Los puntos de medición se muestran correctamente
-- ✅ Todos los filtros funcionan
-- ✅ La navegación (zoom, pan) funciona
-- ⚠️ Fondo gris en lugar de mapa detallado
+- El mapa funciona en modo básico
+- Los puntos de medición se muestran correctamente
+- Todos los filtros funcionan
+- La navegación (zoom, pan) funciona
+- Fondo gris en lugar de mapa detallado
 
 **Después de configurar el token:**
-- ✅ Mapas base detallados de Mapbox
-- ✅ Mejor calidad visual
-- ✅ Estilos profesionales
-- ✅ Mejor experiencia de usuario
+- Mapas base detallados de Mapbox
+- Mejor calidad visual
+- Estilos profesionales
+- Mejor experiencia de usuario
 
-## 🔗 Enlaces útiles
+## Enlaces útiles
 
 - [Mapbox - Crear cuenta](https://www.mapbox.com/)
 - [Dashboard de tokens](https://account.mapbox.com/)
