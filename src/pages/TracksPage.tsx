@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer, PathLayer, LineLayer } from '@deck.gl/layers';
 import { Map } from 'react-map-gl';
@@ -7,10 +7,6 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
   IconButton,
   Dialog,
   DialogTitle,
@@ -19,55 +15,115 @@ import {
   TextField,
   Alert,
   CircularProgress,
+  LinearProgress,
   Paper,
   MenuItem,
   Select,
   FormControl,
   InputLabel,
+  InputBase,
   useMediaQuery,
   useTheme,
   Drawer,
-  Collapse,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Route as RouteIcon,
+  Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Public as PublicIcon,
-  Timeline as TimelineIcon,
-  Speed as SpeedIcon,
-  Timer as TimerIcon,
-  CalendarToday as CalendarIcon,
-  AccessTime as ClockIcon,
+  Search as SearchIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
-import { Track, Measurement, Mission, Campaign } from '../types';
+import { Track, Measurement, Mission, Campaign, Device } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useProjectContext } from '../context/ProjectContext';
-import apiService from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import apiService, { TrackProcessingTimeoutError } from '../services/api';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+import { FloatPanel } from '../components/ui/FloatPanel';
+import { useLocale } from '../utils/i18nFormat';
+
+// --- Helpers de presentación de tracks ---
+const DANGER = '#e0524a';
+
+const statusColor = (status?: string): string | null => {
+  if (!status || status === 'completed') return null;
+  if (status === 'error' || status === 'failed') return DANGER;
+  return '#d9a23a';
+};
+
+const trackMetaLabel = (t: Track): string => {
+  const parts = [t.mission_name, t.campaign_name].filter(Boolean) as string[];
+  return Array.from(new Set(parts)).join(' · ').toUpperCase();
+};
 
 const MAPBOX_ACCESS_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
+
+// Límite del backend para POST /api/tracks/upload/ (responde 413 por encima)
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+type UploadPhase = 'idle' | 'uploading' | 'processing';
+
+const deviceLabel = (d: Device): string =>
+  [d.device_model?.name, d.serial_number].filter(Boolean).join(' · ') || `#${d.id}`;
 
 const TracksPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { selectedProject } = useProjectContext();
   const navigate = useNavigate();
+  const { t } = useTranslation(['tracks', 'common']);
+  const { formatNumber, formatDate, formatTime, formatDateTime } = useLocale();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Fechas colapsadas: mismo día -> "20 may 2026 · 22:34 → 22:39"; distinto -> "20 may → 21 may 2026 · 22:34 → 02:11"
+  const formatTrackRange = (track: Track): string => {
+    if (!track.start_time) return '';
+    const s = new Date(track.start_time);
+    const e = track.end_time ? new Date(track.end_time) : null;
+    const dFull: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+    const dShort: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    const tt: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    const sd = formatDate(s, dFull);
+    const st = formatTime(s, tt);
+    if (!e) return `${sd} · ${st}`;
+    const ed = formatDate(e, dFull);
+    const et = formatTime(e, tt);
+    if (sd === ed) return `${sd} · ${st} → ${et}`;
+    return `${formatDate(s, dShort)} → ${ed} · ${st} → ${et}`;
+  };
+
+  // Stats por track (omite las partes sin dato; no inventa)
+  const trackStats = (track: Track): string => {
+    const parts: string[] = [];
+    const dist = track.total_distance ?? track.distance;
+    if (dist != null) parts.push(t('stats.km', { value: (dist / 1000).toFixed(1) }));
+    if (track.measurements_count != null) parts.push(t('stats.points', { value: formatNumber(track.measurements_count) }));
+    if (track.max_dose_rate != null) parts.push(t('stats.max', { value: track.max_dose_rate.toFixed(2) }));
+    if (track.avg_dose_rate != null) parts.push(t('stats.avg', { value: track.avg_dose_rate.toFixed(2) }));
+    return parts.join(' · ');
+  };
   
   const [tracks, setTracks] = useState<Track[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
+  // Error mostrado dentro del diálogo (subida / edición)
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  // Fase de la subida: el 202 del backend no significa procesado, hay que sondear el track
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>('idle');
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Estado para diálogo de confirmación de eliminación
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -76,8 +132,9 @@ const TracksPage: React.FC = () => {
   // Estado para controlar si el panel lateral está colapsado
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(isMobile);
   
-  // Estado para controlar qué tarjetas están expandidas
-  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  // Controles de la lista (solo UI sobre los tracks ya cargados)
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'longest' | 'samples'>('recent');
   
   // Track selection and map state
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
@@ -97,6 +154,7 @@ const TracksPage: React.FC = () => {
     name: '',
     description: '',
     is_public: false,
+    device: undefined as number | undefined,
     mission: undefined as number | undefined,
     campaign: undefined as number | undefined,
     password: '',
@@ -125,7 +183,7 @@ const TracksPage: React.FC = () => {
       } catch (err: any) {
         if (!abortController.signal.aborted) {
           console.error('Error loading tracks:', err);
-          setError(err.message || 'Error al cargar los tracks');
+          setError(err.message || t('errors.loadTracks'));
         }
       } finally {
         if (!abortController.signal.aborted) {
@@ -167,7 +225,7 @@ const TracksPage: React.FC = () => {
       setTrackMeasurements([]);
       setSelectedTrack(null);
     };
-  }, [isAuthenticated, navigate, selectedProject]);
+  }, [isAuthenticated, navigate, selectedProject, t]);
 
   // Load track measurements when a track is selected
   const handleTrackClick = async (track: Track) => {
@@ -231,7 +289,7 @@ const TracksPage: React.FC = () => {
       
     } catch (err: any) {
       console.error('Error loading track measurements:', err);
-      setError('Error al cargar las mediciones del track');
+      setError(t('errors.loadMeasurements'));
       setTrackMeasurements([]);
     } finally {
       setLoadingMap(false);
@@ -247,7 +305,7 @@ const TracksPage: React.FC = () => {
       console.log('Tracks reloaded:', data.length, data);
     } catch (err: any) {
       console.error('Error reloading tracks:', err);
-      setError(err.message || 'Error al cargar los tracks');
+      setError(err.message || t('errors.loadTracks'));
     }
   };
 
@@ -298,6 +356,7 @@ const TracksPage: React.FC = () => {
           name: completeTrack.name,
           description: completeTrack.description || '',
           is_public: completeTrack.is_public || false,
+          device: completeTrack.device,
           mission: completeTrack.mission,
           campaign: completeTrack.campaign,
           password: '',
@@ -318,6 +377,7 @@ const TracksPage: React.FC = () => {
           name: track.name,
           description: track.description || '',
           is_public: track.is_public || false,
+          device: track.device,
           mission: undefined,
           campaign: track.campaign,
           password: '',
@@ -331,16 +391,48 @@ const TracksPage: React.FC = () => {
         name: '',
         description: '',
         is_public: false,
+        device: undefined,
         mission: undefined,
         campaign: undefined,
         password: '',
       });
       setCampaigns([]);
+      loadDevices();
     }
+    setDialogError(null);
+    setUploadPhase('idle');
     setOpenDialog(true);
   };
 
+  // Dispositivos del usuario para el selector de subida. Si solo hay uno, se preselecciona.
+  const loadDevices = async () => {
+    setLoadingDevices(true);
+    try {
+      const data = await apiService.getMyDevices();
+      setDevices(data);
+      if (data.length === 1) {
+        setFormData((prev) => ({ ...prev, device: data[0].id }));
+      }
+    } catch (err) {
+      console.error('Error loading devices:', err);
+      setDevices([]);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
   const handleCloseDialog = () => {
+    // Si se cierra durante la subida o el sondeo, cancelamos y refrescamos la lista:
+    // el track puede existir ya en el backend aunque no hayamos visto el resultado.
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort();
+      uploadAbortRef.current = null;
+      if (uploadPhase === 'processing') {
+        reloadTracks();
+      }
+    }
+    setUploadPhase('idle');
+    setDialogError(null);
     setOpenDialog(false);
     setEditingTrack(null);
     setSelectedFile(null);
@@ -350,6 +442,7 @@ const TracksPage: React.FC = () => {
       name: '',
       description: '',
       is_public: false,
+      device: undefined,
       mission: undefined,
       campaign: undefined,
       password: '',
@@ -363,10 +456,17 @@ const TracksPage: React.FC = () => {
     if (file) {
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       if (fileExtension !== 'rctrk') {
-        setFileError('Solo se permiten archivos con extensión .rctrk');
+        setFileError(t('errors.invalidFile'));
         console.log('Invalid file extension:', fileExtension);
         setSelectedFile(null);
         e.target.value = ''; // Limpiar el input
+        return;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setFileError(t('errors.fileTooLarge'));
+        console.log('File too large:', file.size);
+        setSelectedFile(null);
+        e.target.value = '';
         return;
       }
       console.log('File selected:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
@@ -377,64 +477,128 @@ const TracksPage: React.FC = () => {
     }
   };
 
+  // Traduce los errores de POST /api/tracks/upload/ ({"error": "..."}) a un mensaje para el usuario
+  const uploadErrorMessage = (err: any): string => {
+    const status: number | undefined = err?.response?.status;
+    const serverMessage: string | undefined = err?.response?.data?.error || err?.response?.data?.detail;
+    switch (status) {
+      case 401:
+        return t('errors.unauthorized');
+      case 403:
+        return t('errors.wrongPassword');
+      case 413:
+        return t('errors.fileTooLarge');
+      case 429: {
+        const retryAfter = Number(err?.response?.headers?.['retry-after']);
+        if (Number.isFinite(retryAfter) && retryAfter > 0) {
+          return t('errors.rateLimited', { minutes: Math.max(1, Math.ceil(retryAfter / 60)) });
+        }
+        return t('errors.rateLimitedNoRetry');
+      }
+      default:
+        return serverMessage || err?.message || t('errors.saveTrack');
+    }
+  };
+
   const handleSaveTrack = async () => {
-    try {
-      if (editingTrack) {
+    setDialogError(null);
+    if (editingTrack) {
+      try {
         await apiService.updateTrack(editingTrack.id, formData);
         console.log('Track updated:', formData);
-      } else {
-        // Para crear un track necesitamos un archivo
-        if (!selectedFile) {
-          setError('Por favor selecciona un archivo RCTRK');
-          return;
-        }
-
-        // Construir FormData para el upload
-        const uploadData = new FormData();
-        uploadData.append('file', selectedFile);
-        
-        // Obtener projectId del contexto
-        const projectId = selectedProject?.id;
-        if (!projectId) {
-          setError('Por favor selecciona un proyecto primero');
-          return;
-        }
-        uploadData.append('project', projectId.toString());
-        uploadData.append('device', '1'); // TODO: obtener del selector de dispositivo
-        
-        // Detectar el tipo de archivo (siempre rctrk)
-        const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
-        if (fileExtension === 'rctrk') {
-          uploadData.append('file_type', 'rctrk');
-        }
-        
-        if (formData.description) {
-          uploadData.append('description', formData.description);
-        }
-        
-        // Añadir misión y campaña si están seleccionadas
-        if (formData.mission) {
-          uploadData.append('mission', formData.mission.toString());
-        }
-        
-        if (formData.campaign) {
-          uploadData.append('campaign', formData.campaign.toString());
-          
-          // Agregar contraseña si la campaña requiere una
-          const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
-          if (selectedCampaign?.has_password && formData.password) {
-            uploadData.append('password', formData.password);
-          }
-        }
-
-        await apiService.createTrack(uploadData);
-        console.log('Track created with file:', selectedFile.name);
+        handleCloseDialog();
+        reloadTracks();
+      } catch (err: any) {
+        console.error('Error updating track:', err);
+        setDialogError(err?.response?.data?.error || err.message || t('errors.saveTrack'));
       }
+      return;
+    }
+
+    // Subida de un .rctrk: file, device, mission y campaign son obligatorios en el backend
+    if (!selectedFile) {
+      setDialogError(t('errors.selectFile'));
+      return;
+    }
+    if (!formData.device) {
+      setDialogError(t('errors.selectDevice'));
+      return;
+    }
+    if (!formData.mission) {
+      setDialogError(t('errors.selectMission'));
+      return;
+    }
+    if (!formData.campaign) {
+      setDialogError(t('errors.selectCampaign'));
+      return;
+    }
+    const selectedCampaign = campaigns.find((c) => c.id === formData.campaign);
+
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
+    setUploadPhase('uploading');
+    let accepted = false; // true cuando el backend ya respondió 202
+    try {
+      const uploadResponse = await apiService.uploadTrack(
+        {
+          file: selectedFile,
+          device: formData.device,
+          mission: formData.mission,
+          campaign: formData.campaign,
+          campaign_password: selectedCampaign?.has_password ? formData.password : undefined,
+          project: selectedProject?.id,
+        },
+        controller.signal
+      );
+      console.log('Track upload accepted:', uploadResponse);
+      accepted = true;
+
+      // 202: el fichero está en el servidor, pero el procesado va en segundo plano
+      setUploadPhase('processing');
+      const processed = await apiService.waitForTrackProcessing(uploadResponse.track_id, {
+        signal: controller.signal,
+      });
+      uploadAbortRef.current = null;
+
+      if (processed.status !== 'completed') {
+        console.error('Track processing failed:', processed);
+        setUploadPhase('idle');
+        setDialogError(
+          processed.error_message
+            ? t('errors.processingFailed', { message: processed.error_message })
+            : t('errors.processingFailedNoMessage')
+        );
+        reloadTracks();
+        return;
+      }
+
+      console.log('Track processed:', processed);
+      setSuccessMessage(
+        t('upload.success', {
+          name: processed.name || selectedFile.name,
+          points: formatNumber(processed.measurements_count ?? 0),
+        })
+      );
       handleCloseDialog();
       reloadTracks();
     } catch (err: any) {
-      console.error('Error saving track:', err);
-      setError(err.message || 'Error al guardar el track');
+      if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') {
+        console.log('Track upload cancelled by user');
+        return;
+      }
+      uploadAbortRef.current = null;
+      if (err instanceof TrackProcessingTimeoutError || accepted) {
+        // Subido pero sin resultado (aún en cola, o falló el sondeo): cerramos y avisamos,
+        // la lista mostrará el track con su estado
+        console.warn('Track uploaded but processing result unknown:', err);
+        handleCloseDialog();
+        setError(t('errors.processingTimeout'));
+        reloadTracks();
+        return;
+      }
+      console.error('Error uploading track:', err);
+      setUploadPhase('idle');
+      setDialogError(uploadErrorMessage(err));
     }
   };
 
@@ -447,7 +611,7 @@ const TracksPage: React.FC = () => {
       reloadTracks();
     } catch (err: any) {
       console.error('Error deleting track:', err);
-      setError(err.message || 'Error al eliminar el track');
+      setError(err.message || t('errors.deleteTrack'));
     }
   };
 
@@ -473,66 +637,47 @@ const TracksPage: React.FC = () => {
       return formData.name.trim() !== '';
     }
     
-    // Para crear un track, validar archivo y contraseña si es necesario
-    if (!selectedFile) return false;
+    // Para subir un track: fichero, dispositivo, misión y campaña son obligatorios
+    if (uploadPhase !== 'idle') return false;
+    if (!selectedFile || !formData.device || !formData.mission || !formData.campaign) return false;
     
-    // Si hay una campaña seleccionada con has_password=true, validar contraseña
-    if (formData.campaign) {
-      const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
-      if (selectedCampaign?.has_password && !formData.password.trim()) {
-        return false;
-      }
+    // Si la campaña tiene has_password=true, la contraseña es obligatoria
+    const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
+    if (selectedCampaign?.has_password && !formData.password.trim()) {
+      return false;
     }
     
     return true;
   };
 
-  const toggleCardExpansion = (trackId: number, event: React.MouseEvent) => {
-    event.stopPropagation(); // Evitar que se active handleTrackClick
-    setExpandedCards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(trackId)) {
-        newSet.delete(trackId);
-      } else {
-        newSet.add(trackId);
+
+  // Lista mostrada: filtro por búsqueda + orden (solo presentación)
+  const displayedTracks = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = tracks.filter(
+      (t) =>
+        !q ||
+        t.name?.toLowerCase().includes(q) ||
+        t.mission_name?.toLowerCase().includes(q) ||
+        t.campaign_name?.toLowerCase().includes(q)
+    );
+    const time = (t: Track) => new Date(t.start_time || t.created_at || 0).getTime();
+    const dist = (t: Track) => t.total_distance ?? t.distance ?? 0;
+    const samples = (t: Track) => t.measurements_count ?? 0;
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest': return time(a) - time(b);
+        case 'longest': return dist(b) - dist(a);
+        case 'samples': return samples(b) - samples(a);
+        default: return time(b) - time(a);
       }
-      return newSet;
     });
-  };
+  }, [tracks, search, sortBy]);
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '-';
-    if (meters < 1000) return `${meters.toFixed(0)} m`;
-    return `${(meters / 1000).toFixed(2)} km`;
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '-';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString?: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const totalKm = useMemo(
+    () => tracks.reduce((s, t) => s + (t.total_distance ?? t.distance ?? 0), 0) / 1000,
+    [tracks]
+  );
 
   // Create map layers for track visualization - MEMOIZADO
   const layers = useMemo(() => [
@@ -651,14 +796,13 @@ const TracksPage: React.FC = () => {
             width: { xs: '85vw', md: 450 },
             boxSizing: 'border-box',
             border: 'none',
-            backgroundColor: '#cddced',
+            borderRight: `1px solid ${T.border}`,
+            backgroundColor: T.surface,
+            backgroundImage: 'none',
             p: 3,
-            top: 80, // Empieza debajo del navbar (igual que Home/MapComponent)
-            height: 'calc(100vh - 80px)',
-            borderTopRightRadius: '16px',
-            borderBottomRightRadius: 0,
-            borderTopLeftRadius: 0,
-            borderBottomLeftRadius: 0,
+            top: 48, // Debajo del navbar (48px)
+            height: 'calc(100vh - 48px)',
+            borderRadius: 0,
           },
         }}
       >
@@ -666,10 +810,10 @@ const TracksPage: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h5" gutterBottom>
-              Mis Tracks
+              {t('header.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Gestiona tus trayectorias
+              {t('header.subtitle')}
             </Typography>
           </Box>
           <IconButton 
@@ -685,15 +829,15 @@ const TracksPage: React.FC = () => {
           </IconButton>
         </Box>
 
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-              fullWidth
-              sx={{ mb: 3 }}
-            >
-              Nuevo Track
-            </Button>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+          fullWidth
+          sx={{ mb: 2, textTransform: 'none' }}
+        >
+          {t('dialog.newButton')}
+        </Button>
 
         {/* Error Alert */}
         {error && (
@@ -701,304 +845,119 @@ const TracksPage: React.FC = () => {
             {error}
           </Alert>
         )}
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage(null)}>
+            {successMessage}
+          </Alert>
+        )}
 
-        {/* Tracks List */}
+        {/* Header de lista: búsqueda + orden + contador */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, height: 40 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flex: 1, minWidth: 0, borderBottom: `1px solid ${T.border}`, px: 0.5 }}>
+            <SearchIcon sx={{ fontSize: 16, color: T.textDim }} />
+            <InputBase
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('search.placeholder')}
+              sx={{ flex: 1, fontFamily: MONO, fontSize: 12, color: T.text, '& input::placeholder': { color: T.textDim, opacity: 1 } }}
+            />
+          </Box>
+          <FormControl size="small" variant="standard">
+            <Select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              disableUnderline
+              sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid, '& .MuiSelect-icon': { color: T.textDim } }}
+            >
+              <MenuItem value="recent" sx={{ fontSize: 12 }}>{t('sort.recent')}</MenuItem>
+              <MenuItem value="oldest" sx={{ fontSize: 12 }}>{t('sort.oldest')}</MenuItem>
+              <MenuItem value="longest" sx={{ fontSize: 12 }}>{t('sort.longest')}</MenuItem>
+              <MenuItem value="samples" sx={{ fontSize: 12 }}>{t('sort.samples')}</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+        <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim, mb: 1, textAlign: 'right' }}>
+          {t('summary', { count: tracks.length, km: totalKm.toFixed(1) })}
+        </Typography>
+
+        {/* Tracks List - filas densas */}
         {tracks.length === 0 ? (
-          <Card sx={{ textAlign: 'center', py: 4 }}>
-            <CardContent>
-              <RouteIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" gutterBottom>
-                No hay tracks
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Crea tu primer track subiendo un archivo RCTRK
-              </Typography>
-            </CardContent>
-          </Card>
+          <Box sx={{ textAlign: 'center', py: 6, color: T.textMid }}>
+            <RouteIcon sx={{ fontSize: 48, color: T.textDim, mb: 1.5 }} />
+            <Typography sx={{ fontSize: 14, color: T.text, mb: 0.5 }}>{t('empty.title')}</Typography>
+            <Typography sx={{ fontSize: 12, color: T.textMid }}>{t('empty.subtitle')}</Typography>
+          </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {tracks.map((track) => {
-              const isExpanded = expandedCards.has(track.id);
-              
+          <Box sx={{ borderTop: `1px dashed ${T.hairline}` }}>
+            {displayedTracks.map((track) => {
+              const selected = selectedTrack?.id === track.id;
+              const dotColor = statusColor(track.status);
+              const meta = trackMetaLabel(track);
+              const range = formatTrackRange(track);
+              const stats = trackStats(track);
               return (
-                <Card 
-                  key={track.id} 
-                  sx={{ 
-                    cursor: 'pointer',
-                    border: selectedTrack?.id === track.id ? 2 : 0,
-                    borderColor: 'primary.main',
-                    '&:hover': { boxShadow: 3 }
-                  }}
+                <Box
+                  key={track.id}
                   onClick={() => handleTrackClick(track)}
+                  sx={{
+                    position: 'relative',
+                    cursor: 'pointer',
+                    px: 1.5,
+                    py: 1.25,
+                    borderBottom: `1px dashed ${T.hairline}`,
+                    borderLeft: selected ? `2px solid ${T.accent}` : '2px solid transparent',
+                    backgroundColor: selected ? T.accentSoft : 'transparent',
+                    '&:hover': { backgroundColor: selected ? T.accentSoft : T.surface2 },
+                    '&:hover .row-actions': { opacity: 1 },
+                  }}
                 >
-                  <CardContent sx={{ pb: 1 }}>
-                    {/* Header con título, icono público y botón expandir */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, mb: 0.5 }}>
-                          {track.name}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {track.is_public && <PublicIcon fontSize="small" color="action" />}
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => toggleCardExpansion(track.id, e)}
-                          sx={{ 
-                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.3s'
-                          }}
-                        >
-                          <ExpandMoreIcon />
-                        </IconButton>
-                      </Box>
+                  {/* Línea 1: nombre + acciones (hover) */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                      {dotColor && <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }} />}
+                      <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 500, color: T.text }}>
+                        {track.name}
+                      </Typography>
                     </Box>
-
-                    {/* Chips de estado, misión y campaña - SIEMPRE VISIBLES */}
-                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.5 }}>
-                      {track.status && (
-                        <Chip 
-                          label={track.status} 
-                          size="small" 
-                          color={track.status === 'completed' ? 'success' : track.status === 'error' ? 'error' : 'default'}
-                        />
-                      )}
-                      {track.mission_name && (
-                        <Chip 
-                          label={track.mission_name} 
-                          size="small" 
-                          color="primary"
-                          variant="outlined"
-                        />
-                      )}
-                      {track.campaign_name && (
-                        <Chip 
-                          label={track.campaign_name} 
-                          size="small" 
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      )}
+                    <Box className="row-actions" sx={{ display: 'flex', gap: 0.25, opacity: 0, transition: 'opacity 120ms ease', flexShrink: 0 }}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); handleOpenDialog(track); }}
+                        sx={{ color: T.textDim, '&:hover': { color: T.text } }}
+                      >
+                        <EditIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(track); }}
+                        sx={{ color: T.textDim, '&:hover': { color: DANGER } }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
                     </Box>
+                  </Box>
 
-                    {/* Fechas inicio y fin - SIEMPRE VISIBLES */}
-                    <Box sx={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: 'repeat(2, 1fr)', 
-                      gap: 1,
-                      fontSize: '0.875rem'
-                    }}>
-                      {track.start_time && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <ClockIcon fontSize="small" color="action" />
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, fontSize: '0.7rem' }}>
-                              Inicio
-                            </Typography>
-                            <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.813rem' }}>
-                              {formatDateTime(track.start_time)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
-                      {track.end_time && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <ClockIcon fontSize="small" color="action" />
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, fontSize: '0.7rem' }}>
-                              Fin
-                            </Typography>
-                            <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.813rem' }}>
-                              {formatDateTime(track.end_time)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
-                    </Box>
+                  {/* Línea 2: misión · campaña */}
+                  {meta && (
+                    <Typography noWrap sx={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.5px', color: T.textMid, mt: 0.25 }}>
+                      {meta}
+                    </Typography>
+                  )}
 
-                    {/* Contenido expandible con Collapse de MUI */}
-                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                      <Box>
-                        {/* Descripción */}
-                        {track.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mt: 2, mb: 1.5 }}>
-                            {track.description}
-                          </Typography>
-                        )}
+                  {/* Línea 3: fechas colapsadas */}
+                  {range && (
+                    <Typography noWrap sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid, mt: 0.25 }}>
+                      {range}
+                    </Typography>
+                  )}
 
-                        {/* Información detallada en grid */}
-                        <Box sx={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: 'repeat(2, 1fr)', 
-                          gap: 1.5, 
-                          mt: 2,
-                          fontSize: '0.875rem'
-                        }}>
-                          {/* Mediciones */}
-                          {track.measurements_count !== undefined && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <TimelineIcon fontSize="small" color="action" />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                                  Mediciones
-                                </Typography>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {track.measurements_count}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          )}
-
-                          {/* Distancia - usar total_distance si existe, sino distance */}
-                          {(track.total_distance !== undefined || track.distance !== undefined) && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <RouteIcon fontSize="small" color="action" />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                                  Distancia
-                                </Typography>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {formatDistance(track.total_distance || track.distance)}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          )}
-
-                          {/* Velocidad promedio */}
-                          {track.average_speed !== undefined && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <SpeedIcon fontSize="small" color="action" />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                                  Velocidad media
-                                </Typography>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {(track.average_speed * 3.6).toFixed(2)} km/h
-                                </Typography>
-                              </Box>
-                            </Box>
-                          )}
-
-                          {/* Duración */}
-                          {track.duration && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <TimerIcon fontSize="small" color="action" />
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
-                                  Duración
-                                </Typography>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {formatDuration(track.duration)}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          )}
-                        </Box>
-
-                        {/* Sección de Estadísticas de Radiación */}
-                        {(track.avg_dose_rate !== undefined && track.avg_dose_rate !== null || 
-                          track.max_dose_rate !== undefined && track.max_dose_rate !== null || 
-                          track.min_dose_rate !== undefined && track.min_dose_rate !== null) && (
-                          <Box sx={{ 
-                            mt: 2,
-                            pt: 2, 
-                            borderTop: '1px solid',
-                            borderColor: 'divider'
-                          }}>
-                            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'text.primary' }}>
-                              Tasa de dosis
-                            </Typography>
-                            <Box sx={{ 
-                              display: 'grid', 
-                              gridTemplateColumns: 'repeat(2, 1fr)', 
-                              gap: 1,
-                              fontSize: '0.813rem'
-                            }}>
-                              {track.avg_dose_rate !== undefined && track.avg_dose_rate !== null && (
-                                <Box>
-                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
-                                    Media
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'warning.main' }}>
-                                    {track.avg_dose_rate.toFixed(3)} µSv/h
-                                  </Typography>
-                                </Box>
-                              )}
-                              {track.max_dose_rate !== undefined && track.max_dose_rate !== null && (
-                                <Box>
-                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
-                                    Máxima
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'error.main' }}>
-                                    {track.max_dose_rate.toFixed(3)} µSv/h
-                                  </Typography>
-                                </Box>
-                              )}
-                              {track.min_dose_rate !== undefined && track.min_dose_rate !== null && (
-                                <Box>
-                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
-                                    Mínima
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'success.main' }}>
-                                    {track.min_dose_rate.toFixed(3)} µSv/h
-                                  </Typography>
-                                </Box>
-                              )}
-                              {track.std_dose_rate !== undefined && track.std_dose_rate !== null && (
-                                <Box>
-                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
-                                    Desv. std
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight={500} sx={{ color: 'info.main' }}>
-                                    {track.std_dose_rate.toFixed(3)} µSv/h
-                                  </Typography>
-                                </Box>
-                              )}
-                            </Box>
-                          </Box>
-                        )}
-
-                        {/* Fecha de creación al final */}
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 0.5, 
-                          pt: 1.5, 
-                          mt: 1.5,
-                          borderTop: '1px solid',
-                          borderColor: 'divider'
-                        }}>
-                          <CalendarIcon fontSize="small" sx={{ fontSize: '0.875rem', color: 'text.secondary' }} />
-                          <Typography variant="caption" color="text.secondary">
-                            Creado: {formatDate(track.created_at)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Collapse>
-                  </CardContent>
-                  
-                  <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleOpenDialog(track); 
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      color="error"
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleOpenDeleteDialog(track); 
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </CardActions>
-                </Card>
+                  {/* Línea 4: stats */}
+                  {stats && (
+                    <Typography noWrap sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim, mt: 0.25 }}>
+                      {stats}
+                    </Typography>
+                  )}
+                </Box>
               );
             })}
           </Box>
@@ -1019,13 +978,13 @@ const TracksPage: React.FC = () => {
           <IconButton
             onClick={() => setSidebarCollapsed(false)}
             sx={{
-              backgroundColor: '#cddced',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              border: 'none',
+              backgroundColor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              color: T.text,
+              backdropFilter: 'blur(8px)',
               '&:hover': {
-                backgroundColor: '#b8c9de',
-                boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-              }
+                backgroundColor: T.surface3,
+              },
             }}
           >
             <ChevronRightIcon />
@@ -1053,15 +1012,16 @@ const TracksPage: React.FC = () => {
               p: 3,
               textAlign: 'center',
               maxWidth: 420,
-              bgcolor: '#cddced',
-              borderRadius: 3,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
-              border: 'none',
+              bgcolor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              borderRadius: '8px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.32)',
+              backdropFilter: 'blur(8px)',
             }}
           >
-            <RouteIcon sx={{ fontSize: 80, color: 'rgba(0,0,0,0.35)', mb: 2 }} />
-            <Typography variant="h6" sx={{ color: 'rgba(0,0,0,0.70)' }}>
-              Selecciona un track para ver su recorrido
+            <RouteIcon sx={{ fontSize: 80, color: T.textDim, mb: 2 }} />
+            <Typography variant="h6" sx={{ color: T.textMid }}>
+              {t('map.selectPrompt')}
             </Typography>
           </Paper>
         )}
@@ -1093,6 +1053,7 @@ const TracksPage: React.FC = () => {
           <Map
             mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
             mapStyle="mapbox://styles/mapbox/dark-v11"
+            projection={{ name: 'mercator' }}
             style={{ width: '100%', height: '100%' }}
             reuseMaps
             interactive={false}
@@ -1114,37 +1075,23 @@ const TracksPage: React.FC = () => {
                 {selectedTrack.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {trackMeasurements.length} puntos cargados
+                {t('map.pointsLoaded', { count: trackMeasurements.length })}
               </Typography>
             </Paper>
 
             {/* Leyenda de colores */}
-            <Paper sx={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              p: 2,
-              minWidth: '180px',
-              zIndex: 3
-            }}>
-              <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 1 }}>
-                Tasa de dosis (µSv/h)
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {RADIATION_LEGEND.map((item, index) => (
-                  <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ 
-                      width: 24, 
-                      height: 16, 
-                      background: item.gradient,
-                      borderRadius: '2px',
-                      border: '1px solid rgba(0,0,0,0.1)'
-                    }} />
-                    <Typography variant="caption" sx={{ fontSize: '11px' }}>{item.label}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Paper>
+            <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 3, width: 180 }}>
+              <FloatPanel title="Dose Rate" right="µSv/h">
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                  {RADIATION_LEGEND.map((item, index) => (
+                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 20, height: 10, background: item.gradient, borderRadius: '2px', flexShrink: 0 }} />
+                      <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textMid }}>{item.label}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </FloatPanel>
+            </Box>
 
             {/* Tooltip for hovered point */}
             {hoveredPoint && hoveredPoint.object && (
@@ -1158,7 +1105,7 @@ const TracksPage: React.FC = () => {
                 pointerEvents: 'none'
               }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Medición Individual
+                  {t('tooltip.title')}
                 </Typography>
                 {'dose_rate' in hoveredPoint.object && hoveredPoint.object.dose_rate !== undefined && (
                   <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
@@ -1176,23 +1123,23 @@ const TracksPage: React.FC = () => {
                   </Typography>
                 )}
                 <Typography variant="caption" component="div">
-                  Lat: {typeof hoveredPoint.object.latitude === 'number' 
-                    ? hoveredPoint.object.latitude.toFixed(6) 
-                    : parseFloat(hoveredPoint.object.latitude).toFixed(6)}
+                  {t('tooltip.lat', { value: typeof hoveredPoint.object.latitude === 'number'
+                    ? hoveredPoint.object.latitude.toFixed(6)
+                    : parseFloat(hoveredPoint.object.latitude).toFixed(6) })}
                 </Typography>
                 <Typography variant="caption" component="div">
-                  Lng: {typeof hoveredPoint.object.longitude === 'number' 
-                    ? hoveredPoint.object.longitude.toFixed(6) 
-                    : parseFloat(hoveredPoint.object.longitude).toFixed(6)}
+                  {t('tooltip.lng', { value: typeof hoveredPoint.object.longitude === 'number'
+                    ? hoveredPoint.object.longitude.toFixed(6)
+                    : parseFloat(hoveredPoint.object.longitude).toFixed(6) })}
                 </Typography>
                 {hoveredPoint.object.altitude && (
                   <Typography variant="caption" component="div">
-                    {hoveredPoint.object.altitude}m
+                    {t('tooltip.altitude', { value: hoveredPoint.object.altitude })}
                   </Typography>
                 )}
                 {hoveredPoint.object.dateTime && (
                   <Typography variant="caption" component="div" color="text.secondary">
-                    {new Date(hoveredPoint.object.dateTime).toLocaleString('es-ES')}
+                    {formatDateTime(hoveredPoint.object.dateTime)}
                   </Typography>
                 )}
                 
@@ -1200,7 +1147,7 @@ const TracksPage: React.FC = () => {
                 {hoveredPoint.object.weather_cache && (
                   <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                      Condiciones Meteorológicas
+                      {t('tooltip.weatherTitle')}
                     </Typography>
                     {hoveredPoint.object.weather_cache.temperature != null && (
                       <Typography variant="caption" component="div">
@@ -1209,22 +1156,22 @@ const TracksPage: React.FC = () => {
                     )}
                     {hoveredPoint.object.weather_cache.humidity != null && (
                       <Typography variant="caption" component="div">
-                        Humedad: {hoveredPoint.object.weather_cache.humidity.toFixed(0)}%
+                        {t('tooltip.humidity', { value: hoveredPoint.object.weather_cache.humidity.toFixed(0) })}
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.pressure != null && (
                       <Typography variant="caption" component="div">
-                        Presión: {hoveredPoint.object.weather_cache.pressure.toFixed(1)} hPa
+                        {t('tooltip.pressure', { value: hoveredPoint.object.weather_cache.pressure.toFixed(1) })}
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.wind_speed != null && hoveredPoint.object.weather_cache.wind_direction != null && (
                       <Typography variant="caption" component="div">
-                        Viento: {hoveredPoint.object.weather_cache.wind_speed.toFixed(1)} m/s ({hoveredPoint.object.weather_cache.wind_direction.toFixed(0)}°)
+                        {t('tooltip.wind', { speed: hoveredPoint.object.weather_cache.wind_speed.toFixed(1), direction: hoveredPoint.object.weather_cache.wind_direction.toFixed(0) })}
                       </Typography>
                     )}
                     {hoveredPoint.object.weather_cache.cloud_cover != null && (
                       <Typography variant="caption" component="div">
-                        Nubosidad: {hoveredPoint.object.weather_cache.cloud_cover.toFixed(0)}%
+                        {t('tooltip.cloudCover', { value: hoveredPoint.object.weather_cache.cloud_cover.toFixed(0) })}
                       </Typography>
                     )}
                   </Box>
@@ -1242,9 +1189,14 @@ const TracksPage: React.FC = () => {
       </Box>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={uploadPhase === 'idle' ? handleCloseDialog : undefined}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
-          {editingTrack ? 'Editar Track' : 'Nuevo Track'}
+          {editingTrack ? t('dialog.editTitle') : t('dialog.newTitle')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
@@ -1254,22 +1206,26 @@ const TracksPage: React.FC = () => {
                   variant="outlined"
                   component="label"
                   fullWidth
+                  disabled={uploadPhase !== 'idle'}
                   sx={{ 
                     height: 56, 
                     textTransform: 'none',
                     justifyContent: 'flex-start',
                     color: selectedFile ? 'primary.main' : 'text.secondary',
-                    borderColor: selectedFile ? 'primary.main' : 'rgba(0, 0, 0, 0.23)',
+                    borderColor: selectedFile ? 'primary.main' : 'rgba(255, 255, 255, 0.23)',
                   }}
                 >
-                  {selectedFile ? selectedFile.name : 'Seleccionar archivo RCTRK'}
+                  {selectedFile ? selectedFile.name : t('dialog.selectFile')}
                   <input
                     type="file"
-                    accept="*"
+                    accept=".rctrk"
                     hidden
                     onChange={handleFileChange}
                   />
                 </Button>
+                <Typography sx={{ fontSize: 12, color: T.textMid, mt: -1 }}>
+                  {t('dialog.fileHint')}
+                </Typography>
                 
                 {fileError && (
                   <Alert severity="error" sx={{ mt: 0 }} onClose={() => setFileError(null)}>
@@ -1279,7 +1235,38 @@ const TracksPage: React.FC = () => {
                 
                 {selectedFile && (
                   <Alert severity="info" sx={{ mt: 0 }}>
-                    Tamaño: {(selectedFile.size / 1024).toFixed(2)} KB
+                    {t('dialog.fileSize', { value: (selectedFile.size / 1024).toFixed(2) })}
+                    {' '}
+                    {t('dialog.duplicateWarning')}
+                  </Alert>
+                )}
+
+                <FormControl fullWidth required disabled={loadingDevices || uploadPhase !== 'idle'}>
+                  <InputLabel id="device-select-label">
+                    {loadingDevices ? t('fields.deviceLoading') : t('fields.device')}
+                  </InputLabel>
+                  <Select
+                    labelId="device-select-label"
+                    value={formData.device || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      device: e.target.value ? Number(e.target.value) : undefined,
+                    })}
+                    label={loadingDevices ? t('fields.deviceLoading') : t('fields.device')}
+                  >
+                    {devices.map((device) => (
+                      <MenuItem key={device.id} value={device.id}>
+                        {deviceLabel(device)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {!loadingDevices && devices.length === 0 && (
+                  <Alert severity="warning" sx={{ mt: -1 }}>
+                    {t('fields.noDevices')}{' '}
+                    <RouterLink to="/devices" style={{ color: 'inherit' }}>
+                      {t('common:nav.myDevices')}
+                    </RouterLink>
                   </Alert>
                 )}
               </>
@@ -1287,7 +1274,7 @@ const TracksPage: React.FC = () => {
             
             {editingTrack && (
               <TextField
-                label="Nombre del track"
+                label={t('fields.name')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 fullWidth
@@ -1295,17 +1282,22 @@ const TracksPage: React.FC = () => {
               />
             )}
             
-            <TextField
-              label="Descripción"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              multiline
-              rows={3}
-              fullWidth
-            />
+            {/* La subida no acepta descripción; solo se edita después */}
+            {editingTrack && (
+              <TextField
+                label={t('fields.description')}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                multiline
+                rows={3}
+                fullWidth
+              />
+            )}
             
-            <FormControl fullWidth>
-              <InputLabel id="mission-select-label">Misión (opcional)</InputLabel>
+            <FormControl fullWidth required={!editingTrack} disabled={uploadPhase !== 'idle'}>
+              <InputLabel id="mission-select-label">
+                {editingTrack ? t('fields.mission') : t('fields.missionRequired')}
+              </InputLabel>
               <Select
                 labelId="mission-select-label"
                 value={formData.mission || ''}
@@ -1326,11 +1318,13 @@ const TracksPage: React.FC = () => {
                     setCampaigns([]);
                   }
                 }}
-                label="Misión (opcional)"
+                label={editingTrack ? t('fields.mission') : t('fields.missionRequired')}
               >
-                <MenuItem value="">
-                  <em>Ninguna</em>
-                </MenuItem>
+                {editingTrack && (
+                  <MenuItem value="">
+                    <em>{t('fields.none')}</em>
+                  </MenuItem>
+                )}
                 {missions.map((mission) => (
                   <MenuItem key={mission.id} value={mission.id}>
                     {mission.name}
@@ -1339,9 +1333,15 @@ const TracksPage: React.FC = () => {
               </Select>
             </FormControl>
             
-            <FormControl fullWidth disabled={!formData.mission || loadingCampaigns}>
+            <FormControl
+              fullWidth
+              required={!editingTrack}
+              disabled={!formData.mission || loadingCampaigns || uploadPhase !== 'idle'}
+            >
               <InputLabel id="campaign-select-label">
-                {loadingCampaigns ? 'Cargando campañas...' : 'Campaña (opcional)'}
+                {loadingCampaigns
+                  ? t('fields.campaignLoading')
+                  : editingTrack ? t('fields.campaign') : t('fields.campaignRequired')}
               </InputLabel>
               <Select
                 labelId="campaign-select-label"
@@ -1351,11 +1351,15 @@ const TracksPage: React.FC = () => {
                   campaign: e.target.value ? Number(e.target.value) : undefined,
                   password: '' // Limpiar contraseña al cambiar de campaña
                 })}
-                label={loadingCampaigns ? 'Cargando campañas...' : 'Campaña (opcional)'}
+                label={loadingCampaigns
+                  ? t('fields.campaignLoading')
+                  : editingTrack ? t('fields.campaign') : t('fields.campaignRequired')}
               >
-                <MenuItem value="">
-                  <em>Ninguna</em>
-                </MenuItem>
+                {editingTrack && (
+                  <MenuItem value="">
+                    <em>{t('fields.none')}</em>
+                  </MenuItem>
+                )}
                 {campaigns.map((campaign) => (
                   <MenuItem key={campaign.id} value={campaign.id}>
                     {campaign.name}
@@ -1367,27 +1371,45 @@ const TracksPage: React.FC = () => {
             {/* Campo de contraseña - solo si la campaña seleccionada tiene has_password=true */}
             {formData.campaign && campaigns.find(c => c.id === formData.campaign)?.has_password && (
               <TextField
-                label="Contraseña de la campaña"
+                label={t('fields.campaignPassword')}
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 fullWidth
                 required
-                helperText="Esta campaña requiere una contraseña"
+                disabled={uploadPhase !== 'idle'}
+                helperText={t('fields.campaignPasswordHelper')}
               />
+            )}
+
+            {/* Progreso: subida del fichero y luego sondeo del procesado en el backend */}
+            {uploadPhase !== 'idle' && (
+              <Box>
+                <LinearProgress sx={{ mb: 1 }} />
+                <Typography sx={{ fontSize: 12, color: T.textMid }}>
+                  {uploadPhase === 'uploading' ? t('upload.uploading') : t('upload.processing')}
+                </Typography>
+              </Box>
+            )}
+
+            {dialogError && (
+              <Alert severity="error" onClose={() => setDialogError(null)}>
+                {dialogError}
+              </Alert>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>
-            Cancelar
+            {t('common:actions.cancel')}
           </Button>
           <Button
             onClick={handleSaveTrack}
             variant="contained"
             disabled={!isFormValid()}
+            startIcon={uploadPhase !== 'idle' ? <CircularProgress size={14} color="inherit" /> : undefined}
           >
-            {editingTrack ? 'Guardar' : 'Crear'}
+            {editingTrack ? t('common:actions.save') : t('dialog.upload')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1399,27 +1421,32 @@ const TracksPage: React.FC = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Confirmar Eliminación</DialogTitle>
+        <DialogTitle>{t('delete.title')}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            ¡Atención! Borrarás el track y todos los datos asociados.
+            {t('delete.warning')}
           </Alert>
           {trackToDelete && (
             <Typography>
-              ¿Estás seguro de que quieres eliminar "<strong>{trackToDelete.name}</strong>"?
+              <Trans
+                t={t}
+                i18nKey="delete.confirmText"
+                values={{ name: trackToDelete.name }}
+                components={{ strong: <strong /> }}
+              />
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDeleteDialog}>
-            Cancelar
+            {t('common:actions.cancel')}
           </Button>
-          <Button 
-            onClick={confirmDelete} 
-            color="error" 
+          <Button
+            onClick={confirmDelete}
+            color="error"
             variant="contained"
           >
-            Eliminar
+            {t('common:actions.delete')}
           </Button>
         </DialogActions>
       </Dialog>

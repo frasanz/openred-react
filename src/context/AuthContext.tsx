@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, LoginCredentials, RegisterData } from '../types';
 import { apiService } from '../services/api';
+import i18n from '../i18n';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -124,15 +125,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('User data after login:', user); // Debug log
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
     } catch (error: any) {
-      let errorMessage = 'Login failed';
-      
+      let errorMessage = i18n.t('auth:login.loginError');
+
       if (error.response?.data) {
         const errorData = error.response.data;
-        
+
         // Si hay errores específicos de campo, formatearlos
         if (typeof errorData === 'object' && !errorData.detail) {
           const fieldErrors: string[] = [];
-          
+
           Object.keys(errorData).forEach(field => {
             const fieldError = errorData[field];
             if (Array.isArray(fieldError)) {
@@ -141,7 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               fieldErrors.push(`${field}: ${fieldError}`);
             }
           });
-          
+
           if (fieldErrors.length > 0) {
             errorMessage = fieldErrors.join('\n');
           }
@@ -153,7 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           errorMessage = errorData;
         }
       }
-      
+
       dispatch({ type: 'AUTH_FAILURE', payload: errorMessage });
       throw error;
     }
@@ -167,17 +168,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('User data after Google login:', user);
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
     } catch (error: any) {
-      let errorMessage = 'Google login failed';
-      
+      let errorMessage = i18n.t('auth:login.googleError');
+
       if (error.response?.data) {
         const errorData = error.response.data;
-        
+
         if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
           errorMessage = errorData.non_field_errors[0];
-          
+
           // Mejorar mensaje si el usuario ya está registrado
           if (errorMessage.includes('already registered')) {
-            errorMessage = 'Este correo ya está registrado. Por favor, inicia sesión con tu contraseña.';
+            errorMessage = i18n.t('auth:login.alreadyRegistered');
           }
         } else if (errorData.detail) {
           errorMessage = errorData.detail;
@@ -205,8 +206,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'AUTH_LOGOUT' }); // Esto limpia loading y mantiene al usuario sin autenticar
       
     } catch (error: any) {
-      let errorMessage = 'Registration failed';
-      
+      let errorMessage = i18n.t('auth:register.createError');
+
       if (error.response?.data) {
         const errorData = error.response.data;
         

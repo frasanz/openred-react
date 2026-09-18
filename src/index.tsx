@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
+import './i18n';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
@@ -13,9 +14,11 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <App />
-    </GoogleOAuthProvider>
+    <Suspense fallback={null}>
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <App />
+      </GoogleOAuthProvider>
+    </Suspense>
   </React.StrictMode>
 );
 

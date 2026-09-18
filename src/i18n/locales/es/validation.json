@@ -1,0 +1,10 @@
+{
+  "required": "Este campo es obligatorio",
+  "email": "Ingresa un email válido",
+  "emailRequired": "El email es requerido",
+  "passwordMin": "La contraseña debe tener al menos {{count}} caracteres",
+  "passwordRequired": "La contraseña es requerida",
+  "passwordConfirm": "Confirma tu contraseña",
+  "passwordsMatch": "Las contraseñas deben coincidir",
+  "fixFields": "Por favor, corrige los errores indicados en los campos"
+}

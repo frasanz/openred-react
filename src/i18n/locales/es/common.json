@@ -1,0 +1,46 @@
+{
+  "appName": "OpenRed",
+  "brandTagline": "/ Network",
+  "nav": {
+    "map": "Mapa",
+    "statistics": "Estadísticas",
+    "mobileApp": "App Móvil",
+    "esp32": "ESP32",
+    "about": "Acerca de",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "telegram": "Telegram",
+    "myTracks": "Mis Tracks",
+    "myDevices": "Mis Dispositivos",
+    "myProfile": "Mi Perfil",
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar Sesión"
+  },
+  "role": {
+    "staff": "staff",
+    "contributor": "colaborador"
+  },
+  "status": {
+    "live": "LIVE"
+  },
+  "loading": "Cargando...",
+  "error": "Error",
+  "emailPlaceholder": "tu@correo.com",
+  "language": {
+    "label": "Idioma",
+    "es": "Español",
+    "en": "English"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "retry": "Reintentar",
+    "download": "Descargar"
+  }
+}

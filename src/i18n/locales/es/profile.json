@@ -1,0 +1,42 @@
+{
+  "loading": "Cargando…",
+  "saving": "Guardando…",
+  "dateFallback": "—",
+  "header": {
+    "memberSince": "{{role}} · MIEMBRO DESDE {{date}}"
+  },
+  "role": {
+    "staff": "STAFF",
+    "contributor": "COLABORADOR"
+  },
+  "form": {
+    "sectionTitle": "Editar perfil",
+    "emailLabel": "Email",
+    "save": "Guardar cambios",
+    "cancel": "Cancelar",
+    "updateSuccess": "Perfil actualizado correctamente",
+    "updateError": "Error al actualizar el perfil"
+  },
+  "account": {
+    "sectionTitle": "Cuenta",
+    "logoutLabel": "Cerrar sesión",
+    "logoutButton": "Cerrar sesión"
+  },
+  "stats": {
+    "sectionTitle": "Tus estadísticas",
+    "totalMeasurements": "Mediciones totales",
+    "tracks": "Tracks",
+    "missions": "Misiones",
+    "campaigns": "Campañas",
+    "maxDose": "Dosis máxima",
+    "doseUnit": "µSv/h"
+  },
+  "activity": {
+    "sectionTitle": "Periodo de actividad",
+    "firstMeasurement": "Primera medición",
+    "lastMeasurement": "Última medición",
+    "daysActive": "Días activo",
+    "daysValue_one": "{{days}} día",
+    "daysValue_other": "{{days}} días"
+  }
+}

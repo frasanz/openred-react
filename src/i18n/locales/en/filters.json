@@ -1,0 +1,128 @@
+{
+  "panel": {
+    "title": "FILTERS",
+    "project": "Project",
+    "mission": "Mission",
+    "campaign": "Campaign",
+    "missionsActive": "{{count}} active",
+    "allMissions": "All missions",
+    "selectMissionFirst": "Select a mission first",
+    "allCampaigns": "All campaigns",
+    "dateRange": "Date Range",
+    "days": "{{value}} days",
+    "altitude": "Altitude",
+    "speed": "Speed",
+    "doseRate": "Dose Rate",
+    "distribution": "Distribution",
+    "totalMeasurements": "Total Measurements",
+    "downloadReport": "Download report",
+    "downloading": "Downloading..."
+  },
+  "dateRange": {
+    "label": "Time Range",
+    "quick": {
+      "today": "Today",
+      "lastWeek": "Last week",
+      "lastMonth": "Last month",
+      "last3Months": "Last 3 months",
+      "lastYear": "Last year",
+      "allTime": "All time"
+    },
+    "day": "1 day",
+    "daysCount": "{{value}} days",
+    "clickToChange": "Click to change",
+    "selectDateRange": "Select Date Range",
+    "currentRange": "Current range: {{range}}",
+    "periodOfDay": "Period of {{count}} day",
+    "periodOfDays": "Period of {{count}} days",
+    "quickRanges": "Quick ranges",
+    "customDates": "Custom dates",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "clear": "Clear",
+    "apply": "Apply"
+  },
+  "projectSelector": {
+    "label": "Project",
+    "loadingProjects": "Loading projects...",
+    "error": "Error: {{message}}",
+    "typeRadiation": "Radiation",
+    "typeLightPollution": "Light Pollution",
+    "typeOther": "Other",
+    "public": "Public",
+    "measurements": "{{value}} measurements",
+    "lastMeasurement": "Last: {{date}}",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "monthAgo": "{{count}} month ago",
+    "monthsAgo": "{{count}} months ago"
+  },
+  "histogram": {
+    "binTooltip": "{{range}} µSv/h · {{value}}"
+  },
+  "spectrum": {
+    "title": "Spectrum {{id}}",
+    "titleNoId": "Spectrum",
+    "loading": "Loading spectrum…",
+    "loadError": "Error loading the spectrum",
+    "noCountsTitle": "Could not find the counts array in the response.",
+    "fieldsReceived": "Fields received: {{fields}}",
+    "meta": {
+      "counts": "Counts",
+      "channels": "Channels",
+      "duration": "Duration",
+      "start": "Start",
+      "altitude": "Alt"
+    },
+    "scale": {
+      "log": "Log",
+      "linear": "Linear"
+    },
+    "axis": {
+      "kev": "keV",
+      "channel": "Channel",
+      "energy": "Energy (keV)"
+    },
+    "noCalibration": "No energy calibration → channel axis",
+    "tooltip": {
+      "counts": "Counts",
+      "kev": "{{value}} keV",
+      "channel": "Channel {{value}}"
+    }
+  },
+  "station": {
+    "title": "Station: {{name}}",
+    "titleNoId": "Station",
+    "loading": "Loading readings…",
+    "loadError": "Error loading the readings",
+    "noData": "No data in this period",
+    "range": {
+      "1d": "1D",
+      "1w": "1W",
+      "1m": "1M",
+      "1y": "1Y",
+      "4y": "4Y"
+    },
+    "metric": {
+      "doseRate": "Dose rate",
+      "cpm": "CPM"
+    },
+    "stats": {
+      "avg": "Avg",
+      "min": "Min",
+      "max": "Max",
+      "points": "Points"
+    },
+    "tooltip": {
+      "avg": "Average",
+      "range": "Range (min–max)"
+    },
+    "weather": {
+      "title": "Weather",
+      "rain": "Rain",
+      "temperature": "Temperature",
+      "wind": "Wind"
+    }
+  }
+}

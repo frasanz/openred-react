@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -20,6 +21,7 @@ import StatisticsPage from './pages/StatisticsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import MobileAppPage from './pages/MobileAppPage';
+import Esp32Page from './pages/Esp32Page';
 import theme from './theme/theme';
 
 // Estilos globales
@@ -47,9 +49,10 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
-    return <div>Cargando...</div>; // Aquí podrías poner un spinner
+    return <div>{t('loading')}</div>; // Aquí podrías poner un spinner
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
@@ -58,15 +61,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 // Componente para rutas de invitados (solo no autenticados)
 const GuestRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
-    return <div>Cargando...</div>;
+    return <div>{t('loading')}</div>;
   }
 
   return !isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 function App() {
+  const { i18n } = useTranslation();
+
+  // Keep <html lang> in sync with the active language for a11y and SEO.
+  React.useEffect(() => {
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -127,9 +138,13 @@ function App() {
                   path="/terms-of-service" 
                   element={<TermsOfServicePage />} 
                 />
-                <Route 
-                  path="/mobile-app" 
-                  element={<MobileAppPage />} 
+                <Route
+                  path="/mobile-app"
+                  element={<MobileAppPage />}
+                />
+                <Route
+                  path="/esp32"
+                  element={<Esp32Page />}
                 />
 
                 {/* Rutas protegidas */}
@@ -149,13 +164,21 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
-                <Route 
-                  path="/profile" 
+                <Route
+                  path="/devices"
+                  element={
+                    <ProtectedRoute>
+                      <DevicesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
                   element={
                     <ProtectedRoute>
                       <ProfilePage />
                     </ProtectedRoute>
-                  } 
+                  }
                 />
 
                 {/* Ruta catch-all */}

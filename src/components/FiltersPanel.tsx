@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
-import { Select, MenuItem, FormControl, InputLabel, Box, CircularProgress, Typography, Slider, Button } from '@mui/material';
+import { Select, MenuItem, FormControl, Box, CircularProgress, Typography, Slider, Button } from '@mui/material';
 import { MapFilters, Project, AdaptiveFilters, CommonFilters, RadiationFilters, LightPollutionFilters, Mission, Campaign } from '../types';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
+import { useLocale } from '../utils/i18nFormat';
 import DateRangeFilter from './filters/DateRangeFilter';
 import { ProjectSelector } from './ProjectSelector';
 import apiService from '../services/api';
 import RadiationHistogram from './RadiationHistogram';
 import { HistogramFetchParams } from '../hooks/useMeasurementsByZoom';
+import { Section } from './ui/Section';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+
+// Ticks (marks) para los sliders — solo posiciones, sin etiqueta
+const makeTicks = (min: number, max: number, n = 4) =>
+  Array.from({ length: n + 1 }, (_, i) => ({ value: min + ((max - min) * i) / n }));
+const ALT_TICKS = makeTicks(-100, 10000, 4);
+const SPEED_TICKS = makeTicks(0, 1000, 4);
+const DOSE_TICKS = makeTicks(0, 10, 5);
 
 interface FiltersPanelMD3Props {
   measurements?: any[];
@@ -68,6 +79,8 @@ const FiltersPanelMD3: React.FC<FiltersPanelMD3Props> = ({
   viewBounds,
   histogramFetchParams,
 }) => {
+  const { t } = useTranslation('filters');
+  const { formatNumber } = useLocale();
   const isRadiation = selectedProject?.project_type === 'radiation';
   const isLightPollution = selectedProject?.project_type === 'light_pollution';
   const [downloadingReport, setDownloadingReport] = useState(false);
@@ -213,252 +226,204 @@ const FiltersPanelMD3: React.FC<FiltersPanelMD3Props> = ({
     }
   }, [selectedProject, adaptiveFilters, selectedMission, selectedCampaign, viewBounds]);
 
-  const sliderSx = {
-    color: '#0751A4',
-    '& .MuiSlider-thumb': { width: 14, height: 14 },
-    '& .MuiSlider-rail': { opacity: 0.3 },
-  };
+  const days = Math.max(
+    0,
+    Math.round((effectiveFilters.endDate.getTime() - effectiveFilters.startDate.getTime()) / 86400000)
+  );
+  const totalCount = totalMeasurements !== undefined ? totalMeasurements : measurements.length;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-      {/* Project Selector */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', color: T.text }}>
+      <Typography
+        sx={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: '1px', color: T.text, mb: 0.5 }}
+      >
+        {t('panel.title')}
+      </Typography>
+
+      {/* Project */}
       {onProjectChange && (
-        <ProjectSelector
-          selectedProject={selectedProject}
-          onProjectChange={onProjectChange}
-        />
+        <Section label={t('panel.project')} divider={false}>
+          <ProjectSelector selectedProject={selectedProject} onProjectChange={onProjectChange} />
+        </Section>
       )}
 
-      {/* Mission and Campaign Filters */}
+      {/* Mission + Campaign */}
       {onMissionChange && onCampaignChange && (
         <>
-            {/* Mission Selector */}
-            <FormControl fullWidth size="small" sx={{ 
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': {
-                  borderColor: '#0751A4',
-                  borderWidth: '1px',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#0751A4',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#0751A4',
-                },
-              }
-            }}>
-                <InputLabel shrink={true}>Misión</InputLabel>
-            <Select
-              value={selectedMission || ''}
-              label="Misión"
-              onChange={(e) => {
-                const value = e.target.value;
-                onMissionChange(value ? Number(value) : undefined);
-              }}
-              displayEmpty
-              notched
-              renderValue={(value) => {
-                if (!value) {
-                  return <span style={{ color: '#64748b' }}>Todas las misiones</span>;
-                }
-                const mission = missions.find((m) => m.id === value);
-                return mission ? mission.name : '';
-              }}
-            >
-              <MenuItem value="">
-                Todas las misiones
-              </MenuItem>
-              {missions.map((mission) => (
-                <MenuItem key={mission.id} value={mission.id}>
-                  {mission.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Campaign Selector */}
-          <FormControl 
-            fullWidth 
-            size="small"
-            disabled={!selectedMission || loadingCampaigns}
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': {
-                  borderColor: '#0751A4',
-                  borderWidth: '1px',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#0751A4',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#0751A4',
-                },
-              }
-            }}
-          >
-            <InputLabel shrink={true}>Campaña</InputLabel>
-            <Select
-              value={selectedCampaign || ''}
-              label="Campaña"
-              onChange={(e) => {
-                const value = e.target.value;
-                onCampaignChange(value ? Number(value) : undefined);
-              }}
-              displayEmpty
-              notched
-              renderValue={(value) => {
-                if (!value) {
-                  if (!selectedMission) {
-                    return <span style={{ color: '#94a3b8' }}>Selecciona una misión primero</span>;
+          <Section label={t('panel.mission')} right={t('panel.missionsActive', { count: missions.length })}>
+            <FormControl fullWidth size="small">
+              <Select
+                value={selectedMission || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  onMissionChange(value ? Number(value) : undefined);
+                }}
+                displayEmpty
+                renderValue={(value) => {
+                  if (!value) {
+                    return <span style={{ color: T.textDim }}>{t('panel.allMissions')}</span>;
                   }
-                  return <span style={{ color: '#64748b' }}>Todas las campañas</span>;
-                }
-                const campaign = campaigns.find((c) => c.id === value);
-                return campaign ? campaign.name : '';
-              }}
-              endAdornment={
-                loadingCampaigns ? (
-                  <CircularProgress size={20} sx={{ mr: 2 }} />
-                ) : null
-              }
-            >
-              <MenuItem value="">
-                {!selectedMission ? 'Selecciona una misión primero' : 'Todas las campañas'}
-              </MenuItem>
-              {campaigns.map((campaign) => (
-                <MenuItem key={campaign.id} value={campaign.id}>
-                  {campaign.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          </>
-        )}
+                  const mission = missions.find((m) => m.id === value);
+                  return mission ? mission.name : '';
+                }}
+              >
+                <MenuItem value="">{t('panel.allMissions')}</MenuItem>
+                {missions.map((mission) => (
+                  <MenuItem key={mission.id} value={mission.id}>
+                    {mission.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Section>
 
-      {/* Date Range Filter - Elegant Date Picker */}
-      <Box>
+          <Section label={t('panel.campaign')}>
+            <FormControl fullWidth size="small" disabled={!selectedMission || loadingCampaigns}>
+              <Select
+                value={selectedCampaign || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  onCampaignChange(value ? Number(value) : undefined);
+                }}
+                displayEmpty
+                renderValue={(value) => {
+                  if (!value) {
+                    if (!selectedMission) {
+                      return <span style={{ color: T.textDim }}>{t('panel.selectMissionFirst')}</span>;
+                    }
+                    return <span style={{ color: T.textDim }}>{t('panel.allCampaigns')}</span>;
+                  }
+                  const campaign = campaigns.find((c) => c.id === value);
+                  return campaign ? campaign.name : '';
+                }}
+                endAdornment={loadingCampaigns ? <CircularProgress size={16} sx={{ mr: 2 }} /> : null}
+              >
+                <MenuItem value="">
+                  {!selectedMission ? t('panel.selectMissionFirst') : t('panel.allCampaigns')}
+                </MenuItem>
+                {campaigns.map((campaign) => (
+                  <MenuItem key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Section>
+        </>
+      )}
+
+      {/* Date Range */}
+      <Section label={t('panel.dateRange')} right={t('panel.days', { value: formatNumber(days) })}>
         <DateRangeFilter
           startDate={effectiveFilters.startDate}
           endDate={effectiveFilters.endDate}
           onChange={handleDateRangeFiltersChange}
         />
-      </Box>
+      </Section>
 
-      {/* Altitude Filter */}
-      <Box sx={{ px: 1 }}>
-        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-          Altitud (m)
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>{altitudeRange[0]} m</Typography>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>{altitudeRange[1]} m</Typography>
+      {/* Altitude */}
+      <Section label={t('panel.altitude')} right="m">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
+          <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{altitudeRange[0]}</Typography>
+          <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{altitudeRange[1]}</Typography>
         </Box>
         <Slider
           value={altitudeRange}
           min={ALTITUDE_MIN}
           max={ALTITUDE_MAX}
           step={10}
+          marks={ALT_TICKS}
           onChange={(_, v) => setAltitudeRange(v as [number, number])}
           onChangeCommitted={handleAltitudeCommit}
-          sx={sliderSx}
-          size="small"
         />
-      </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{ALTITUDE_MIN} m</Typography>
+          <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{ALTITUDE_MAX} m</Typography>
+        </Box>
+      </Section>
 
-      {/* Speed Filter */}
-      <Box sx={{ px: 1 }}>
-        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-          Velocidad (km/h)
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>{speedRange[0]} km/h</Typography>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>{speedRange[1]} km/h</Typography>
+      {/* Speed */}
+      <Section label={t('panel.speed')} right="km/h">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
+          <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{speedRange[0]}</Typography>
+          <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{speedRange[1]}</Typography>
         </Box>
         <Slider
           value={speedRange}
           min={SPEED_MIN}
           max={SPEED_MAX}
           step={1}
+          marks={SPEED_TICKS}
           onChange={(_, v) => setSpeedRange(v as [number, number])}
           onChangeCommitted={handleSpeedCommit}
-          sx={sliderSx}
-          size="small"
         />
-      </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{SPEED_MIN} km/h</Typography>
+          <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{SPEED_MAX} km/h</Typography>
+        </Box>
+      </Section>
 
-      {/* Dose Rate Filter - solo para proyectos de radiación */}
+      {/* Dose Rate (radiación) */}
       {isRadiation && (
-        <Box sx={{ px: 1 }}>
-          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-            Radiación (µSv/h)
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" sx={{ color: '#94a3b8' }}>{doseRateRange[0].toFixed(2)} µSv/h</Typography>
-            <Typography variant="caption" sx={{ color: '#94a3b8' }}>{doseRateRange[1].toFixed(2)} µSv/h</Typography>
+        <Section label={t('panel.doseRate')} right="µSv/h">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
+            <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{doseRateRange[0].toFixed(2)}</Typography>
+            <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.text }}>{doseRateRange[1].toFixed(2)}</Typography>
           </Box>
           <Slider
             value={doseRateRange}
             min={DOSE_RATE_MIN}
             max={DOSE_RATE_MAX}
             step={0.01}
+            marks={DOSE_TICKS}
             onChange={(_, v) => setDoseRateRange(v as [number, number])}
             onChangeCommitted={handleDoseRateCommit}
-            sx={sliderSx}
-            size="small"
           />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{DOSE_RATE_MIN.toFixed(2)} µSv/h</Typography>
+            <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{DOSE_RATE_MAX.toFixed(2)} µSv/h</Typography>
+          </Box>
+        </Section>
+      )}
+
+      {/* Distribution (radiación) */}
+      {isRadiation && selectedProject && (
+        <Section label={t('panel.distribution')} right={formatNumber(totalCount)}>
+          <RadiationHistogram fetchParams={histogramFetchParams} />
+        </Section>
+      )}
+
+      {/* Descarga report - light pollution */}
+      {isLightPollution && (
+        <Box sx={{ mt: 1.75 }}>
+          <Button variant="outlined" fullWidth disabled={downloadingReport} onClick={handleDownloadReport} sx={{ fontSize: 12 }}>
+            {downloadingReport ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            {downloadingReport ? t('panel.downloading') : t('panel.downloadReport')}
+          </Button>
         </Box>
       )}
 
-      {/* Botón de descarga de report - solo para light pollution */}
-      {isLightPollution && (
-        <Button
-          variant="outlined"
-          fullWidth
-          disabled={downloadingReport}
-          onClick={handleDownloadReport}
-          sx={{ borderColor: '#0751A4', color: '#0751A4' }}
-        >
-          {downloadingReport ? <CircularProgress size={18} sx={{ mr: 1 }} /> : null}
-          {downloadingReport ? 'Descargando...' : 'Descargar report'}
-        </Button>
-      )}
-
-      {/* Histograma de distribución de dosis - solo para radiación */}
-      {isRadiation && selectedProject && (
-        <RadiationHistogram fetchParams={histogramFetchParams} />
-      )}
-
-      {/* Botón de descarga de report - solo para radiación */}
+      {/* Descarga report - radiación */}
       {isRadiation && (
-        <Button
-          variant="outlined"
-          fullWidth
-          disabled={downloadingReport}
-          onClick={handleDownloadRadiationReport}
-          sx={{ borderColor: '#0751A4', color: '#0751A4' }}
-        >
-          {downloadingReport ? <CircularProgress size={18} sx={{ mr: 1 }} /> : null}
-          {downloadingReport ? 'Descargando...' : 'Descargar report'}
-        </Button>
+        <Box sx={{ mt: 1.75 }}>
+          <Button variant="outlined" fullWidth disabled={downloadingReport} onClick={handleDownloadRadiationReport} sx={{ fontSize: 12 }}>
+            {downloadingReport ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            {downloadingReport ? t('panel.downloading') : t('panel.downloadReport')}
+          </Button>
+        </Box>
       )}
 
-      {/* Simple stats display */}
-      <Box 
-        sx={{ 
-          p: 2, 
-          bgcolor: '#000000',
-          borderRadius: 2,
-          textAlign: 'center',
-          color: '#CDDCED'
-        }}
-      >
-        <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: '#CDDCED' }}>
-          {(totalMeasurements !== undefined ? totalMeasurements : measurements.length).toLocaleString('es-ES')}
+      {/* Total measurements */}
+      <Section label={t('panel.totalMeasurements')}>
+        <Typography
+          sx={{ fontFamily: MONO, fontSize: 30, fontWeight: 600, color: T.text, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}
+        >
+          {formatNumber(totalCount)}
         </Typography>
-        <Typography variant="body2" component="div" sx={{ color: '#CDDCED' }}>
-          mediciones
-        </Typography>
-      </Box>
+        <Box sx={{ mt: 1, height: 3, borderRadius: 2, bgcolor: T.surface3, overflow: 'hidden' }}>
+          <Box sx={{ width: '100%', height: '100%', bgcolor: T.accent, opacity: 0.55 }} />
+        </Box>
+      </Section>
     </Box>
   );
 };

@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import apiService from '../services/api';
 import { getRadiationColor } from '../utils/radiationColors';
 import { HistogramFetchParams } from '../hooks/useMeasurementsByZoom';
+import { useLocale } from '../utils/i18nFormat';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
 
 interface Props {
   fetchParams?: HistogramFetchParams;
@@ -11,13 +14,13 @@ interface Props {
 
 // Bins fijos alineados con la leyenda del mapa
 const LEGEND_BINS = [
-  { label: '0–0.08',    midpoint: 0.04 },
-  { label: '0.08–0.12', midpoint: 0.10 },
-  { label: '0.12–0.16', midpoint: 0.14 },
-  { label: '0.16–0.20', midpoint: 0.18 },
-  { label: '0.20–0.30', midpoint: 0.25 },
-  { label: '0.30–0.50', midpoint: 0.40 },
-  { label: '>0.50',     midpoint: 0.51 },
+  { label: '0–0.08',    midpoint: 0.04, tick: '0' },
+  { label: '0.08–0.12', midpoint: 0.10, tick: '.08' },
+  { label: '0.12–0.16', midpoint: 0.14, tick: '.12' },
+  { label: '0.16–0.20', midpoint: 0.18, tick: '.16' },
+  { label: '0.20–0.30', midpoint: 0.25, tick: '.20' },
+  { label: '0.30–0.50', midpoint: 0.40, tick: '.30' },
+  { label: '>0.50',     midpoint: 0.51, tick: '.50' },
 ];
 
 const BIN_COLORS = LEGEND_BINS.map(({ midpoint }) => {
@@ -25,26 +28,9 @@ const BIN_COLORS = LEGEND_BINS.map(({ midpoint }) => {
   return `rgb(${r},${g},${b})`;
 });
 
-const STATIC_DATA = LEGEND_BINS.map(({ label }) => ({ label, count: 0 }));
-
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload?.length) {
-    const index = LEGEND_BINS.findIndex(b => b.label === payload[0].payload.label);
-    return (
-      <Box sx={{ bgcolor: '#1e293b', border: '1px solid #334155', borderRadius: 1, p: 1 }}>
-        <Typography variant="caption" sx={{ color: '#CDDCED', display: 'block' }}>
-          {payload[0].payload.label} µSv/h
-        </Typography>
-        <Typography variant="caption" sx={{ color: index >= 0 ? BIN_COLORS[index] : '#fff', fontWeight: 600 }}>
-          {payload[0].value.toLocaleString('es-ES')} mediciones
-        </Typography>
-      </Box>
-    );
-  }
-  return null;
-};
-
 const RadiationHistogram: React.FC<Props> = ({ fetchParams }) => {
+  const { t } = useTranslation('filters');
+  const { formatNumber } = useLocale();
   const [counts, setCounts] = useState<number[]>(new Array(7).fill(0));
   const [loading, setLoading] = useState(false);
 
@@ -58,7 +44,7 @@ const RadiationHistogram: React.FC<Props> = ({ fetchParams }) => {
       try {
         const result = await apiService.getRadiationHistogram(fetchParams);
         if (!cancelled) {
-          setCounts(result.bins.map(b => b.count));
+          setCounts(result.bins.map((b) => b.count));
         }
       } catch (err) {
         console.error('Error fetching radiation histogram:', err);
@@ -68,51 +54,64 @@ const RadiationHistogram: React.FC<Props> = ({ fetchParams }) => {
     };
 
     fetchData();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [fetchParams]);
 
-  const data = STATIC_DATA.map((bin, i) => ({ ...bin, count: counts[i] ?? 0 }));
+  const total = counts.reduce((acc, c) => acc + (c || 0), 0);
+  const maxCount = Math.max(1, ...counts);
 
   return (
-    <Box>
-      <Typography
-        variant="caption"
-        sx={{ color: '#64748b', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', px: 1 }}
-      >
-        Distribución de tasa de dosis
-      </Typography>
+    <Box sx={{ position: 'relative' }}>
+      {loading && (
+        <CircularProgress size={12} sx={{ position: 'absolute', top: 0, right: 0, color: T.textDim }} />
+      )}
 
-      <Box sx={{ mt: 1, height: 160, position: 'relative' }}>
-        {loading && (
-          <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}>
-            <CircularProgress size={16} sx={{ color: '#64748b' }} />
-          </Box>
-        )}
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 45 }}>
-            <XAxis
-              dataKey="label"
-              axisLine={{ stroke: '#334155' }}
-              tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 9 }}
-              angle={-40}
-              textAnchor="end"
-              interval={0}
-            />
-            <YAxis
-              tick={{ fill: '#64748b', fontSize: 10 }}
-              axisLine={false}
-              tickLine={false}
-              width={40}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-            <Bar dataKey="count" radius={[2, 2, 0, 0]}>
-              {data.map((_, i) => (
-                <Cell key={i} fill={BIN_COLORS[i]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Barras inline */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: 60 }}>
+        {LEGEND_BINS.map((bin, i) => {
+          const c = counts[i] ?? 0;
+          const pct = total > 0 ? Math.round((c / total) * 100) : 0;
+          const h = (c / maxCount) * 100;
+          return (
+            <Box
+              key={bin.label}
+              title={t('histogram.binTooltip', { range: bin.label, value: formatNumber(c) })}
+              sx={{
+                flex: 1,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <Typography sx={{ fontFamily: MONO, fontSize: 8, color: T.textDim, mb: 0.25 }}>{pct}%</Typography>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: `${h}%`,
+                  minHeight: c > 0 ? 2 : 0,
+                  backgroundColor: BIN_COLORS[i],
+                  borderRadius: '1px',
+                }}
+              />
+            </Box>
+          );
+        })}
+      </Box>
+
+      {/* Eje X: cota inferior de cada bin */}
+      <Box sx={{ display: 'flex', gap: '3px', mt: 0.5 }}>
+        {LEGEND_BINS.map((bin) => (
+          <Typography
+            key={bin.label}
+            sx={{ flex: 1, textAlign: 'center', fontFamily: MONO, fontSize: 8, color: T.textDim }}
+          >
+            {bin.tick}
+          </Typography>
+        ))}
       </Box>
     </Box>
   );

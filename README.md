@@ -429,7 +429,7 @@ npm run build
 ```nginx
 server {
     listen 80;
-    server_name app.open-red.es;
+    server_name map.open-red.es;
 
     root /var/www/openred-react/build;
     index index.html;
@@ -451,7 +451,27 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
+
+    # Teselas SDGSAT (Lost at Night) para proyectos de contaminacion luminica.
+    # lostatnight.org no envia cabeceras CORS, por lo que se sirven desde este
+    # mismo origen. La cache evita repetir peticiones al servidor externo
+    # (requiere una zona proxy_cache_path "tiles" definida en el bloque http {}).
+    location /sdgsat_tiles/ {
+        proxy_pass https://lostatnight.org/tileset/SDGSAT_EU_UK/;
+        proxy_set_header Host lostatnight.org;
+        proxy_ssl_server_name on;
+        proxy_cache tiles;
+        proxy_cache_valid 200 30d;
+        proxy_cache_valid 404 1h;
+        expires 30d;
+    }
 }
+```
+
+Ejemplo de zona de cache para las teselas, dentro del bloque `http {}` de nginx:
+
+```nginx
+proxy_cache_path /var/cache/nginx/tiles levels=1:2 keys_zone=tiles:10m max_size=2g inactive=60d;
 ```
 
 ### 4.4 Variables de Entorno
@@ -462,6 +482,7 @@ server {
 | `REACT_APP_MAPBOX_TOKEN` | Sí | Token de Mapbox API | - |
 | `REACT_APP_DEBUG` | No | Habilitar logs debug | `false` |
 | `REACT_APP_ENABLE_MARNA` | No | Habilitar capa MARNA | `true` |
+| `REACT_APP_SDGSAT_TILES_URL` | No | Plantilla de teselas SDGSAT (`{z}/{x}/{y}`) | `<origen de la app>/sdgsat_tiles/{z}/{x}/{y}.png` |
 
 ---
 

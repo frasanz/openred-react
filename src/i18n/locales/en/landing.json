@@ -1,0 +1,39 @@
+{
+  "kicker": "Citizen Science",
+  "title": "Openred",
+  "meta": "An open environmental monitoring network",
+  "intro": "OpenRed is a collaborative platform that allows citizens and scientists to record, visualize, and analyze environmental measurements in real time, including gamma radiation and light pollution. It is a project of the Ibercivis Foundation.",
+  "cta": {
+    "register": "Create account",
+    "login": "Sign in",
+    "viewMap": "View map"
+  },
+  "features": {
+    "map": {
+      "kicker": "MAP",
+      "title": "Map visualization",
+      "body": "Explore gamma radiation and light pollution measurements on an interactive map, by campaigns and scientific missions."
+    },
+    "data": {
+      "kicker": "DATA",
+      "title": "Data analysis",
+      "body": "Detailed statistics, distributions and histograms. Analyze trends and patterns in environmental measurements."
+    },
+    "community": {
+      "kicker": "COMMUNITY",
+      "title": "Citizen science",
+      "body": "Contribute by recording your own measurements and become part of an open and transparent community."
+    },
+    "app": {
+      "kicker": "APP",
+      "title": "Mobile application",
+      "body": "Record measurements from your Android device and sync them automatically with the platform."
+    }
+  },
+  "footer": {
+    "mobileApp": "Mobile app",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "contact": "Contact"
+  }
+}

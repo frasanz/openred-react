@@ -7,18 +7,18 @@ import {
   Paper,
   Button,
   Popover,
-  IconButton,
   Chip,
   Divider,
   Stack
 } from '@mui/material';
 import {
   CalendarToday,
-  DateRange as DateRangeIcon,
   Clear,
-  Today,
   AccessTime
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
+import { useLocale } from '../../utils/i18nFormat';
+import { darkTokens as T } from '../../theme/tokens';
 
 interface DateRangeFilterProps {
   startDate: Date;
@@ -31,14 +31,15 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   startDate,
   endDate,
   onChange,
-  label = "Rango Temporal"
 }) => {
+  const { t } = useTranslation('filters');
+  const { formatDate } = useLocale();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
 
   const quickRanges = [
-    { 
-      label: 'Hoy', 
+    {
+      label: t('dateRange.quick.today'),
       icon: '',
       getValue: (): [Date, Date] => {
         const now = new Date();
@@ -47,8 +48,8 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         return [start, end];
       }
     },
-    { 
-      label: 'Última semana', 
+    {
+      label: t('dateRange.quick.lastWeek'),
       icon: '',
       getValue: (): [Date, Date] => {
         const end = new Date();
@@ -56,8 +57,8 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         return [start, end];
       }
     },
-    { 
-      label: 'Último mes', 
+    {
+      label: t('dateRange.quick.lastMonth'),
       icon: '',
       getValue: (): [Date, Date] => {
         const end = new Date();
@@ -65,8 +66,8 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         return [start, end];
       }
     },
-    { 
-      label: 'Últimos 3 meses', 
+    {
+      label: t('dateRange.quick.last3Months'),
       icon: '',
       getValue: (): [Date, Date] => {
         const end = new Date();
@@ -74,8 +75,8 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         return [start, end];
       }
     },
-    { 
-      label: 'Último año', 
+    {
+      label: t('dateRange.quick.lastYear'),
       icon: '',
       getValue: (): [Date, Date] => {
         const end = new Date();
@@ -83,24 +84,21 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         return [start, end];
       }
     },
-    { 
-      label: 'Todo el período', 
+    {
+      label: t('dateRange.quick.allTime'),
       icon: '',
       getValue: (): [Date, Date] => [new Date('2020-01-01'), new Date()]
     },
   ];
 
   const formatDateRange = () => {
-    const start = startDate.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric'
-    });
-    const end = endDate.toLocaleDateString('es-ES', {
+    const opts: Intl.DateTimeFormatOptions = {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
-    });
+    };
+    const start = formatDate(startDate, opts);
+    const end = formatDate(endDate, opts);
     return `${start} - ${end}`;
   };
 
@@ -155,7 +153,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           overflow: 'hidden',
           border: '1px solid',
           borderColor: 'divider',
-          backgroundColor: '#E4EEFA',
+          backgroundColor: T.surface2,
         }}
       >
         <Button
@@ -168,9 +166,9 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
             py: 2,
             px: 3,
             textAlign: 'left',
-            backgroundColor: '#E4EEFA',
+            backgroundColor: T.surface2,
             '&:hover': {
-              backgroundColor: '#d5e3f7',
+              backgroundColor: T.surface3,
             },
             textTransform: 'none',
             borderRadius: 0,
@@ -179,11 +177,11 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <CalendarToday sx={{ mr: 2, color: 'primary.main' }} />
             <Box sx={{ flex: 1 }}>
-              <Typography variant="body1" fontWeight={500} sx={{ color: '#0751A4' }}>
+              <Typography variant="body1" fontWeight={500} sx={{ color: T.text }}>
                 {formatDateRange()}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {getDaysDifference() === 1 ? '1 día' : `${getDaysDifference()} días`} • Click para cambiar
+                {getDaysDifference() === 1 ? t('dateRange.day') : t('dateRange.daysCount', { value: getDaysDifference() })} • {t('dateRange.clickToChange')}
               </Typography>
             </Box>
           </Box>
@@ -208,7 +206,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
               border: '1px solid',
               borderColor: 'divider',
               minWidth: 420,
-              backgroundColor: '#E4EEFA',
+              backgroundColor: T.surface2,
             }
           }}
         >
@@ -218,10 +216,10 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
               alignItems: 'center', 
               gap: 1,
               mb: 2,
-              color: '#0751A4'
+              color: T.text
             }}>
               <CalendarToday color="primary" />
-              Seleccionar Rango de Fechas
+              {t('dateRange.selectDateRange')}
             </Typography>
             
             {/* Información del rango actual */}
@@ -230,25 +228,27 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
               sx={{ 
                 p: 2, 
                 mb: 3, 
-                backgroundColor: '#d5e3f7',
-                borderColor: 'primary.200'
+                backgroundColor: T.surface3,
+                borderColor: T.border
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <AccessTime color="primary" fontSize="small" />
-                <Typography variant="subtitle2" sx={{ color: '#0751A4' }}>
-                  Rango actual: {formatDateRange()}
+                <Typography variant="subtitle2" sx={{ color: T.text }}>
+                  {t('dateRange.currentRange', { range: formatDateRange() })}
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Período de {getDaysDifference()} {getDaysDifference() === 1 ? 'día' : 'días'}
+                {getDaysDifference() === 1
+                  ? t('dateRange.periodOfDay', { count: getDaysDifference() })
+                  : t('dateRange.periodOfDays', { count: getDaysDifference() })}
               </Typography>
             </Paper>
             
             {/* Rangos rápidos */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, color: '#0751A4' }}>
-                Rangos rápidos
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, color: T.text }}>
+                {t('dateRange.quickRanges')}
               </Typography>
               <Grid container spacing={1}>
                 {quickRanges.map((range, index) => (
@@ -267,7 +267,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                         width: '100%',
                         py: 1,
                         '&:hover': {
-                          bgcolor: 'primary.50',
+                          bgcolor: T.surface3,
                           borderColor: 'primary.main',
                           transform: 'translateY(-1px)',
                         },
@@ -283,14 +283,14 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
 
             {/* Campos de fecha personalizados */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, color: '#0751A4' }}>
-                Fechas personalizadas
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, color: T.text }}>
+                {t('dateRange.customDates')}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <TextField
                     type="date"
-                    label="Fecha inicio"
+                    label={t('dateRange.startDate')}
                     value={formatDateForInput(startDate)}
                     onChange={(e) => handleDateChange('start', e.target.value)}
                     fullWidth
@@ -309,7 +309,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                 <Grid item xs={6}>
                   <TextField
                     type="date"
-                    label="Fecha fin"
+                    label={t('dateRange.endDate')}
                     value={formatDateForInput(endDate)}
                     onChange={(e) => handleDateChange('end', e.target.value)}
                     fullWidth
@@ -340,7 +340,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                 startIcon={<Clear />}
                 sx={{ borderRadius: 2 }}
               >
-                Limpiar
+                {t('dateRange.clear')}
               </Button>
               <Button 
                 onClick={handleClose} 
@@ -348,7 +348,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                 size="small"
                 sx={{ borderRadius: 2 }}
               >
-                Aplicar
+                {t('dateRange.apply')}
               </Button>
             </Stack>
           </Box>

@@ -1,0 +1,111 @@
+{
+  "loadingMeasurements": "Loading measurements...",
+  "tooltip": {
+    "measurement": "Measurement",
+    "cluster": "Measurement cluster",
+    "dataGrid": "Data grid",
+    "spectrum": "Spectrum #{{id}}",
+    "cct": "CCT",
+    "brightness": "Brightness",
+    "countRate": "Count rate",
+    "speed": "Speed",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "altitude": "Altitude",
+    "date": "Date",
+    "weather": "Weather",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "pressure": "Pressure",
+    "wind": "Wind",
+    "cloudCover": "Cloud cover",
+    "measurements": "Measurements",
+    "min": "Minimum",
+    "max": "Maximum",
+    "stdDev": "Std. deviation",
+    "cctMean": "Mean CCT",
+    "cctMin": "Min CCT",
+    "cctMax": "Max CCT",
+    "luxMean": "lux (mean)",
+    "doseMean": "µSv/h (mean)",
+    "zoomHint": "Zoom in (≥16) to see individual measurements",
+    "totalValue": "Total value",
+    "avgValue": "Average value",
+    "spectrumClickHint": "Click to view the spectrum",
+    "status": "Status",
+    "lastMeasurement": "Last measurement",
+    "neverMeasured": "No measurements yet",
+    "measurements24h": "Measurements (24h)",
+    "stationClickHint": "Click to view history"
+  },
+  "stationStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "unknown": "Unknown"
+  },
+  "layers": {
+    "title": "Layers",
+    "spectraMarkers": "Spectra markers",
+    "spectraVisible": "{{count}} visible",
+    "stationsMarkers": "Stations",
+    "stationsVisible": "{{count}} visible",
+    "marnaLayer": "MARNA layer",
+    "marnaSub": "Natural background",
+    "sdgsatLayer": "SDGSAT layer",
+    "sdgsatSub": "Night satellite (Lost at Night)",
+    "satellite": "Satellite",
+    "satelliteSub": "Mapbox satellite"
+  },
+  "legend": {
+    "illumination": "Illumination",
+    "doseRate": "Dose Rate",
+    "cct": "Color temperature",
+    "colorMode": {
+      "illumination": "Illumination",
+      "cct": "Temperature"
+    },
+    "luxQuality": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "acceptable": "Acceptable",
+      "moderate": "Moderate",
+      "high": "High",
+      "veryHigh": "Very High"
+    },
+    "cctQuality": {
+      "veryWarm": "Very warm",
+      "warm": "Warm",
+      "neutral": "Neutral",
+      "cool": "Cool",
+      "veryCool": "Very cool"
+    }
+  },
+  "stats": {
+    "title": "Dose Statistics",
+    "mean": "Mean",
+    "max": "Max",
+    "min": "Min",
+    "stdDev": "Std dev",
+    "samples": "Samples",
+    "samplesUnit": "pts"
+  },
+  "chrome": {
+    "view": "VIEW",
+    "zoom": "Z",
+    "pitch": "PITCH"
+  },
+  "mapbox": {
+    "notConfiguredTitle": "Mapbox token not configured",
+    "notConfiguredBody": "For detailed maps, configure REACT_APP_MAPBOX_TOKEN"
+  },
+  "loading": {
+    "title": "Loading measurements in parallel",
+    "progress": "{{loaded}} of {{total}} measurements",
+    "minutesLeft": "~{{minutes}}m {{seconds}}s remaining",
+    "secondsLeft": "~{{seconds}}s remaining",
+    "finishing": "Finishing...",
+    "completed": "Completed!",
+    "rate": "{{rate}} measurements/s",
+    "starting": "Starting..."
+  }
+}

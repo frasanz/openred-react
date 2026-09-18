@@ -1,0 +1,117 @@
+{
+  "loading": "Loading...",
+  "header": {
+    "title": "My Devices and Stations"
+  },
+  "sections": {
+    "devices": "Devices",
+    "devicesHint": "Make a track with the mobile app and the device will be linked to your account.",
+    "stations": "Static stations",
+    "stationsHint": "Link a device to a fixed location and a radiation project.",
+    "addDevice": "Add device",
+    "addStation": "Add station"
+  },
+  "empty": {
+    "devices": "You have no registered devices",
+    "addFirstDevice": "Add first device",
+    "stations": "You have no stations",
+    "noDevicesForStation": "Create a device first so you can link it to a station."
+  },
+  "card": {
+    "serial": "Serial: {{serial}}",
+    "active": "Active",
+    "inactive": "Inactive",
+    "tokenPresent": "Token configured",
+    "tokenAbsent": "No token",
+    "tokenCreatedAt": "Token created on {{date}}",
+    "calibration": "Calibration: {{date}}",
+    "lastMeasurement": "Last measurement: {{date}}",
+    "neverMeasured": "No measurements yet"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "regenerate": "Regenerate token"
+  },
+  "deviceDialog": {
+    "addTitle": "Add device",
+    "editTitle": "Edit device",
+    "modelLabel": "Model",
+    "modelOption": "{{name}} - {{manufacturer}}",
+    "serialLabel": "Serial number",
+    "calibrationLabel": "Calibration date",
+    "activeLabel": "Active device",
+    "cancel": "Cancel",
+    "create": "Create",
+    "update": "Update"
+  },
+  "tokenDialog": {
+    "title": "Save your ingest token",
+    "warning": "This token is shown only once. Copy it now and set it in the device firmware (X-Device-Token header). You won't be able to recover it later; if you lose it you'll have to regenerate it.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "done": "Done, I saved it"
+  },
+  "regenerateConfirm": "Regenerate this device's token? The previous token will stop working and you'll need to reconfigure the firmware.",
+  "exampleDialog": {
+    "title": "Example: upload a measurement",
+    "note": "You don't need this if you upload measurements with the mobile app — the app handles sending for you. This direct ingest API is only for custom hardware that sends its own measurements using its token. For now it's only available for gamma radiation projects.",
+    "intro": "The device sends measurements with its token in the X-Device-Token header. Example request:",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close"
+  },
+  "stationDialog": {
+    "addTitle": "Add station",
+    "editTitle": "Edit station",
+    "nameLabel": "Name",
+    "deviceLabel": "Device",
+    "projectLabel": "Radiation project",
+    "mapHint": "Click on the map to set the station location.",
+    "noLocation": "No location selected",
+    "latitudeLabel": "Latitude",
+    "longitudeLabel": "Longitude",
+    "altitudeLabel": "Altitude (m)",
+    "intervalLabel": "Expected interval (s)",
+    "cancel": "Cancel",
+    "create": "Create",
+    "update": "Update"
+  },
+  "stationCard": {
+    "device": "Device: {{serial}}",
+    "project": "Project: {{name}}",
+    "lastMeasurement": "Last measurement: {{date}}",
+    "neverMeasured": "No measurements yet",
+    "location": "{{lat}}, {{lon}}"
+  },
+  "stationStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "unknown": "Unknown"
+  },
+  "confirm": {
+    "deleteDevice": "Are you sure you want to delete this device?",
+    "deleteStation": "Are you sure you want to delete this station?"
+  },
+  "errors": {
+    "load": "Error loading data",
+    "createDevice": "Error creating the device",
+    "updateDevice": "Error updating the device",
+    "deleteDevice": "Error deleting the device",
+    "regenerate": "Error regenerating the token",
+    "createStation": "Error creating the station",
+    "updateStation": "Error updating the station",
+    "deleteStation": "Error deleting the station"
+  },
+  "validation": {
+    "modelRequired": "Select a device model",
+    "serialRequired": "Serial number is required",
+    "nameRequired": "Name is required",
+    "deviceRequired": "Select a device",
+    "projectRequired": "Select a radiation project",
+    "latitudeRequired": "Latitude is required",
+    "longitudeRequired": "Longitude is required",
+    "latitudeRange": "Latitude must be between -90 and 90",
+    "longitudeRange": "Longitude must be between -180 and 180"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "kicker": "APP",
+  "title": "Mobile application",
+  "stores": {
+    "heading": "Download the app",
+    "description": "OpenRed is now available on the official stores. Download it for free on Android and iOS.",
+    "googlePlay": "Get it on Google Play",
+    "appStore": "Download on the App Store"
+  },
+  "about": {
+    "heading": "About the app",
+    "body": "The OpenRed mobile application lets you record environmental measurements directly from your Android device. Connect your radiation and light pollution sensors to contribute to citizen science in real time."
+  },
+  "features": {
+    "heading": "Features",
+    "measurementsLabel": "Measurement recording",
+    "measurementsDesc": "Capture gamma radiation and light pollution data with your connected devices.",
+    "tracksLabel": "Real-time tracks",
+    "tracksDesc": "Create and manage measurement tracks during your monitoring campaigns.",
+    "syncLabel": "Automatic sync",
+    "syncDesc": "Your data is automatically synchronized with the OpenRed platform.",
+    "mapLabel": "Map visualization",
+    "mapDesc": "View your measurements in real time on an interactive map."
+  },
+  "contactBanner": {
+    "title": "Issues or suggestions?",
+    "body": "Contact us at frasanz@ibercivis.es"
+  },
+  "backToHome": "Back to home page"
+}

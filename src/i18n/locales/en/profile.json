@@ -1,0 +1,42 @@
+{
+  "loading": "Loading…",
+  "saving": "Saving…",
+  "dateFallback": "—",
+  "header": {
+    "memberSince": "{{role}} · MEMBER SINCE {{date}}"
+  },
+  "role": {
+    "staff": "STAFF",
+    "contributor": "CONTRIBUTOR"
+  },
+  "form": {
+    "sectionTitle": "Edit profile",
+    "emailLabel": "Email",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "updateSuccess": "Profile updated successfully",
+    "updateError": "Failed to update profile"
+  },
+  "account": {
+    "sectionTitle": "Account",
+    "logoutLabel": "Sign out",
+    "logoutButton": "Sign out"
+  },
+  "stats": {
+    "sectionTitle": "Your statistics",
+    "totalMeasurements": "Total measurements",
+    "tracks": "Tracks",
+    "missions": "Missions",
+    "campaigns": "Campaigns",
+    "maxDose": "Maximum dose",
+    "doseUnit": "µSv/h"
+  },
+  "activity": {
+    "sectionTitle": "Activity period",
+    "firstMeasurement": "First measurement",
+    "lastMeasurement": "Last measurement",
+    "daysActive": "Days active",
+    "daysValue_one": "{{days}} day",
+    "daysValue_other": "{{days}} days"
+  }
+}

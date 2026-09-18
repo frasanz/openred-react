@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProjects, type Project } from '../hooks/useProjects';
 import { CircularProgress, FormControl, InputLabel, Select, MenuItem, Box, Chip, Typography } from '@mui/material';
+import { useLocale } from '../utils/i18nFormat';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
 
 interface ProjectSelectorProps {
   selectedProject: Project | null;
@@ -13,7 +17,9 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   onProjectChange,
   className = '',
 }) => {
-  const { projects, loading, error, refreshProjectCounts } = useProjects();
+  const { projects, loading, error } = useProjects();
+  const { t } = useTranslation('filters');
+  const { formatNumber, formatDate } = useLocale();
 
   // Debug logs
   useEffect(() => {
@@ -63,11 +69,11 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const getProjectTypeLabel = (type: string) => {
     switch (type) {
       case 'radiation':
-        return 'Radiación';
+        return t('projectSelector.typeRadiation');
       case 'light_pollution':
-        return 'Cont. Lumínica';
+        return t('projectSelector.typeLightPollution');
       default:
-        return 'Otro';
+        return t('projectSelector.typeOther');
     }
   };
 
@@ -91,16 +97,18 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays === 0) {
-      return 'Hoy';
+      return t('projectSelector.today');
     } else if (diffDays === 1) {
-      return 'Ayer';
+      return t('projectSelector.yesterday');
     } else if (diffDays < 30) {
-      return `Hace ${diffDays} días`;
+      return t('projectSelector.daysAgo', { count: diffDays });
     } else if (diffDays < 365) {
       const diffMonths = Math.floor(diffDays / 30);
-      return `Hace ${diffMonths} ${diffMonths === 1 ? 'mes' : 'meses'}`;
+      return diffMonths === 1
+        ? t('projectSelector.monthAgo', { count: diffMonths })
+        : t('projectSelector.monthsAgo', { count: diffMonths });
     } else {
-      return date.toLocaleDateString('es-ES', {
+      return formatDate(date, {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -114,7 +122,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       <Box className={className} display="flex" alignItems="center" gap={1}>
         <CircularProgress size={16} />
         <Typography variant="body2" color="text.secondary">
-          Cargando proyectos...
+          {t('projectSelector.loadingProjects')}
         </Typography>
       </Box>
     );
@@ -124,7 +132,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     return (
       <Box className={className}>
         <Typography variant="body2" color="error">
-          Error: {error}
+          {t('projectSelector.error', { message: error })}
         </Typography>
       </Box>
     );
@@ -132,26 +140,13 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   return (
     <Box className={className}>
-      <FormControl fullWidth size="small" sx={{ 
-        '& .MuiOutlinedInput-root': {
-          '& fieldset': {
-            borderColor: '#0751A4',
-            borderWidth: '1px',
-          },
-          '&:hover fieldset': {
-            borderColor: '#0751A4',
-          },
-          '&.Mui-focused fieldset': {
-            borderColor: '#0751A4',
-          },
-        }
-      }}>
-        <InputLabel id="project-selector-label">Proyecto</InputLabel>
+      <FormControl fullWidth size="small">
+        <InputLabel id="project-selector-label">{t('projectSelector.label')}</InputLabel>
         <Select
           labelId="project-selector-label"
           id="project-selector"
           value={selectedProject?.id || ''}
-          label="Proyecto"
+          label={t('projectSelector.label')}
           onChange={(e) => {
             const projectId = parseInt(e.target.value as string);
             const project = projects.find(p => p.id === projectId);
@@ -163,32 +158,18 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
           renderValue={(value) => {
             const project = projects.find(p => p.id === value);
             if (!project) return '';
-            
+
             return (
-              <Box display="flex" alignItems="center" gap={1.5} sx={{ py: 0.5 }}>
-                <span style={{ fontSize: '16px' }}>{getProjectIcon(project.project_type)}</span>
-                <Typography variant="body2" fontWeight="medium">
-                  {project.name}
-                </Typography>
-                <Chip 
-                  label={getProjectTypeLabel(project.project_type)}
-                  size="small"
-                  color={getProjectTypeColor(project.project_type)}
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem', height: '22px' }}
-                />
-                <Chip
-                  label={`${project.measurements_count.toLocaleString()}`}
-                  size="small"
-                  variant="filled"
-                  color="primary"
-                  sx={{ fontSize: '0.7rem', height: '22px', fontWeight: 'medium' }}
-                />
-                {project.is_public && (
-                  <Typography variant="caption" color="success.main" sx={{ fontSize: '0.7rem', fontWeight: 'medium' }}>
-                    Público
+              <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, bgcolor: project.is_active ? T.ok : T.textDim }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                    {project.name}
                   </Typography>
-                )}
+                </Box>
+                <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim, mt: 0.25 }}>
+                  {getProjectTypeLabel(project.project_type)} · {t('projectSelector.measurements', { value: formatNumber(project.measurements_count) })}
+                </Typography>
               </Box>
             );
           }}
@@ -232,8 +213,8 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       sx={{ fontSize: '0.75rem', height: '24px' }}
                     />
                     {project.is_public && (
-                      <Chip 
-                        label="Público"
+                      <Chip
+                        label={t('projectSelector.public')}
                         size="small"
                         color="success"
                         variant="outlined"
@@ -243,16 +224,12 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   </Box>
                   {/* Línea secundaria: estadísticas */}
                   <Box display="flex" alignItems="center" gap={2}>
-                    <Chip
-                      label={`${project.measurements_count.toLocaleString()} mediciones`}
-                      size="small"
-                      variant="filled"
-                      color="primary"
-                      sx={{ fontSize: '0.7rem', height: '20px', fontWeight: 'medium' }}
-                    />
+                    <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid }}>
+                      {t('projectSelector.measurements', { value: formatNumber(project.measurements_count) })}
+                    </Typography>
                     {project.last_measurement_date && (
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Última: {formatLastMeasurementDate(project.last_measurement_date)}
+                        {t('projectSelector.lastMeasurement', { date: formatLastMeasurementDate(project.last_measurement_date) })}
                       </Typography>
                     )}
                   </Box>

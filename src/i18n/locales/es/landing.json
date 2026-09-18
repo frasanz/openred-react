@@ -1,0 +1,39 @@
+{
+  "kicker": "Ciencia ciudadana",
+  "title": "Openred",
+  "meta": "Una red abierta de medición ambiental",
+  "intro": "OpenRed es una plataforma colaborativa que permite a ciudadanos y científicos registrar, visualizar y analizar mediciones ambientales en tiempo real, incluyendo radiación gamma y contaminación lumínica. Es un proyecto de la Fundación Ibercivis.",
+  "cta": {
+    "register": "Crear cuenta",
+    "login": "Iniciar sesión",
+    "viewMap": "Ver mapa →"
+  },
+  "features": {
+    "map": {
+      "kicker": "MAPA",
+      "title": "Visualización en mapa",
+      "body": "Explora mediciones de radiación gamma y contaminación lumínica en un mapa interactivo, por campañas y misiones científicas."
+    },
+    "data": {
+      "kicker": "DATOS",
+      "title": "Análisis de datos",
+      "body": "Estadísticas detalladas, distribuciones e histogramas. Analiza tendencias y patrones en las mediciones ambientales."
+    },
+    "community": {
+      "kicker": "COMUNIDAD",
+      "title": "Ciencia ciudadana",
+      "body": "Contribuye registrando tus propias mediciones y forma parte de una comunidad abierta y transparente."
+    },
+    "app": {
+      "kicker": "APP",
+      "title": "Aplicación móvil",
+      "body": "Registra mediciones desde tu dispositivo Android y sincronízalas automáticamente con la plataforma."
+    }
+  },
+  "footer": {
+    "mobileApp": "App móvil",
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "contact": "Contacto"
+  }
+}

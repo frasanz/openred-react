@@ -9,12 +9,14 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import LoginIcon from '@mui/icons-material/Login';
 import InfoIcon from '@mui/icons-material/Info';
 
 const EmailConfirmedPage: React.FC = () => {
+  const { t } = useTranslation('auth');
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'already-confirmed'>('loading');
@@ -32,23 +34,23 @@ const EmailConfirmedPage: React.FC = () => {
     const timer = setTimeout(() => {
       if (statusParam === 'success') {
         setStatus('success');
-        setMessage(messageParam || 'Tu cuenta ha sido verificada exitosamente.');
+        setMessage(messageParam || t('confirmed.successDefault'));
       } else if (statusParam === 'error' || errorParam) {
         setStatus('error');
-        setMessage(messageParam || errorParam || 'Hubo un problema al verificar tu dirección de email.');
+        setMessage(messageParam || errorParam || t('confirmed.errorDefault'));
       } else if (statusParam === 'already-confirmed') {
         setStatus('already-confirmed');
-        setMessage(messageParam || 'Esta cuenta ya ha sido confirmada anteriormente.');
+        setMessage(messageParam || t('confirmed.alreadyDefault'));
       } else {
-        // Si llegamos aquí desde Django sin parámetros específicos, 
+        // Si llegamos aquí desde Django sin parámetros específicos,
         // probablemente es una confirmación exitosa
         setStatus('success');
-        setMessage('Tu cuenta ha sido verificada exitosamente.');
+        setMessage(t('confirmed.successDefault'));
       }
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [searchParams, location]);
+  }, [searchParams, location, t]);
 
   const renderContent = () => {
     switch (status) {
@@ -57,10 +59,10 @@ const EmailConfirmedPage: React.FC = () => {
           <Box sx={{ textAlign: 'center' }}>
             <CircularProgress size={64} sx={{ mb: 2 }} />
             <Typography variant="h5" gutterBottom>
-              Verificando tu cuenta...
+              {t('confirmed.verifyingTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Por favor espera mientras confirmamos tu dirección de email.
+              {t('confirmed.verifyingBody')}
             </Typography>
           </Box>
         );
@@ -76,20 +78,20 @@ const EmailConfirmedPage: React.FC = () => {
               }} 
             />
             <Typography variant="h4" gutterBottom>
-              ¡Email Confirmado!
+              {t('confirmed.successTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               {message}
             </Typography>
-            
+
             <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
               <Typography variant="body2">
-                <strong>¡Bienvenido a OpenRed!</strong> Tu cuenta está ahora activa y puedes:
+                <strong>{t('confirmed.welcomeLead')}</strong> {t('confirmed.welcomeIntro')}
               </Typography>
               <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
-                <li>Iniciar sesión con tu email y contraseña</li>
-                <li>Acceder a todas las funcionalidades de la plataforma</li>
-                <li>Contribuir a la ciencia ciudadana</li>
+                <li>{t('confirmed.welcome1')}</li>
+                <li>{t('confirmed.welcome2')}</li>
+                <li>{t('confirmed.welcome3')}</li>
               </Typography>
             </Alert>
 
@@ -102,23 +104,23 @@ const EmailConfirmedPage: React.FC = () => {
                 startIcon={<LoginIcon />}
                 sx={{ 
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Iniciar Sesión
+                {t('confirmed.goToLogin')}
               </Button>
-              
+
               <Button
                 component={Link}
                 to="/"
                 variant="outlined"
                 size="large"
-                sx={{ 
+                sx={{
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Ir al Inicio
+                {t('confirmed.goToHome')}
               </Button>
             </Box>
           </Box>
@@ -135,20 +137,20 @@ const EmailConfirmedPage: React.FC = () => {
               }} 
             />
             <Typography variant="h4" gutterBottom>
-              Cuenta Ya Confirmada
+              {t('confirmed.alreadyTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               {message}
             </Typography>
-            
+
             <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
               <Typography variant="body2">
-                <strong>Tu cuenta ya está activa.</strong> Puedes proceder a:
+                <strong>{t('confirmed.alreadyLead')}</strong> {t('confirmed.alreadyIntro')}
               </Typography>
               <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
-                <li>Iniciar sesión normalmente</li>
-                <li>Usar todas las funcionalidades de la plataforma</li>
-                <li>No necesitas confirmar el email nuevamente</li>
+                <li>{t('confirmed.already1')}</li>
+                <li>{t('confirmed.already2')}</li>
+                <li>{t('confirmed.already3')}</li>
               </Typography>
             </Alert>
 
@@ -161,23 +163,23 @@ const EmailConfirmedPage: React.FC = () => {
                 startIcon={<LoginIcon />}
                 sx={{ 
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Iniciar Sesión
+                {t('confirmed.goToLogin')}
               </Button>
-              
+
               <Button
                 component={Link}
                 to="/"
                 variant="outlined"
                 size="large"
-                sx={{ 
+                sx={{
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Ir al Inicio
+                {t('confirmed.goToHome')}
               </Button>
             </Box>
           </Box>
@@ -194,29 +196,29 @@ const EmailConfirmedPage: React.FC = () => {
               }} 
             />
             <Typography variant="h4" gutterBottom>
-              Error de Verificación
+              {t('confirmed.errorTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               {message}
             </Typography>
-            
+
             <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
               <Typography variant="body2">
-                <strong>Posibles causas:</strong>
+                <strong>{t('confirmed.causesLead')}</strong>
               </Typography>
               <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 1 }}>
-                <li>El enlace de verificación ha expirado</li>
-                <li>El enlace ya ha sido utilizado anteriormente</li>
-                <li>El enlace está dañado o incompleto</li>
-                <li>Problema temporal del servidor</li>
+                <li>{t('confirmed.cause1')}</li>
+                <li>{t('confirmed.cause2')}</li>
+                <li>{t('confirmed.cause3')}</li>
+                <li>{t('confirmed.cause4')}</li>
               </Typography>
               <Typography variant="body2">
-                <strong>Soluciones:</strong>
+                <strong>{t('confirmed.solutionsLead')}</strong>
               </Typography>
               <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
-                <li>Intenta registrarte nuevamente con el mismo email</li>
-                <li>Revisa tu bandeja de spam</li>
-                <li>Contacta al soporte si el problema persiste</li>
+                <li>{t('confirmed.solution1')}</li>
+                <li>{t('confirmed.solution2')}</li>
+                <li>{t('confirmed.solution3')}</li>
               </Typography>
             </Alert>
 
@@ -228,23 +230,23 @@ const EmailConfirmedPage: React.FC = () => {
                 size="large"
                 sx={{ 
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Registrarse de Nuevo
+                {t('confirmed.registerAgain')}
               </Button>
-              
+
               <Button
                 component={Link}
                 to="/login"
                 variant="outlined"
                 size="large"
-                sx={{ 
+                sx={{
                   textTransform: 'none',
-                  px: 3 
+                  px: 3
                 }}
               >
-                Intentar Iniciar Sesión
+                {t('confirmed.tryLogin')}
               </Button>
             </Box>
           </Box>

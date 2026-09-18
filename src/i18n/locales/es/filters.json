@@ -1,0 +1,128 @@
+{
+  "panel": {
+    "title": "FILTROS",
+    "project": "Proyecto",
+    "mission": "Misión",
+    "campaign": "Campaña",
+    "missionsActive": "{{count}} activas",
+    "allMissions": "Todas las misiones",
+    "selectMissionFirst": "Selecciona una misión primero",
+    "allCampaigns": "Todas las campañas",
+    "dateRange": "Rango de fechas",
+    "days": "{{value}} días",
+    "altitude": "Altitud",
+    "speed": "Velocidad",
+    "doseRate": "Tasa de dosis",
+    "distribution": "Distribución",
+    "totalMeasurements": "Total de mediciones",
+    "downloadReport": "Descargar report",
+    "downloading": "Descargando..."
+  },
+  "dateRange": {
+    "label": "Rango Temporal",
+    "quick": {
+      "today": "Hoy",
+      "lastWeek": "Última semana",
+      "lastMonth": "Último mes",
+      "last3Months": "Últimos 3 meses",
+      "lastYear": "Último año",
+      "allTime": "Todo el período"
+    },
+    "day": "1 día",
+    "daysCount": "{{value}} días",
+    "clickToChange": "Click para cambiar",
+    "selectDateRange": "Seleccionar Rango de Fechas",
+    "currentRange": "Rango actual: {{range}}",
+    "periodOfDay": "Período de {{count}} día",
+    "periodOfDays": "Período de {{count}} días",
+    "quickRanges": "Rangos rápidos",
+    "customDates": "Fechas personalizadas",
+    "startDate": "Fecha inicio",
+    "endDate": "Fecha fin",
+    "clear": "Limpiar",
+    "apply": "Aplicar"
+  },
+  "projectSelector": {
+    "label": "Proyecto",
+    "loadingProjects": "Cargando proyectos...",
+    "error": "Error: {{message}}",
+    "typeRadiation": "Radiación",
+    "typeLightPollution": "Cont. Lumínica",
+    "typeOther": "Otro",
+    "public": "Público",
+    "measurements": "{{value}} medidas",
+    "lastMeasurement": "Última: {{date}}",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "daysAgo": "Hace {{count}} días",
+    "monthAgo": "Hace {{count}} mes",
+    "monthsAgo": "Hace {{count}} meses"
+  },
+  "histogram": {
+    "binTooltip": "{{range}} µSv/h · {{value}}"
+  },
+  "spectrum": {
+    "title": "Espectro {{id}}",
+    "titleNoId": "Espectro",
+    "loading": "Cargando espectro…",
+    "loadError": "Error al cargar el espectro",
+    "noCountsTitle": "No encontré el array de cuentas en la respuesta.",
+    "fieldsReceived": "Campos recibidos: {{fields}}",
+    "meta": {
+      "counts": "Cuentas",
+      "channels": "Canales",
+      "duration": "Duración",
+      "start": "Inicio",
+      "altitude": "Alt"
+    },
+    "scale": {
+      "log": "Log",
+      "linear": "Lineal"
+    },
+    "axis": {
+      "kev": "keV",
+      "channel": "Canal",
+      "energy": "Energía (keV)"
+    },
+    "noCalibration": "Sin calibración energética → eje por canal",
+    "tooltip": {
+      "counts": "Cuentas",
+      "kev": "{{value}} keV",
+      "channel": "Canal {{value}}"
+    }
+  },
+  "station": {
+    "title": "Estación: {{name}}",
+    "titleNoId": "Estación",
+    "loading": "Cargando lecturas…",
+    "loadError": "Error al cargar las lecturas",
+    "noData": "Sin datos en este periodo",
+    "range": {
+      "1d": "1D",
+      "1w": "1S",
+      "1m": "1M",
+      "1y": "1A",
+      "4y": "4A"
+    },
+    "metric": {
+      "doseRate": "Dosis",
+      "cpm": "CPM"
+    },
+    "stats": {
+      "avg": "Media",
+      "min": "Mín",
+      "max": "Máx",
+      "points": "Puntos"
+    },
+    "tooltip": {
+      "avg": "Media",
+      "range": "Rango (mín–máx)"
+    },
+    "weather": {
+      "title": "Meteorología",
+      "rain": "Lluvia",
+      "temperature": "Temperatura",
+      "wind": "Viento"
+    }
+  }
+}

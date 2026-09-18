@@ -22,8 +22,12 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import apiService from '../services/api';
-import { OPENRED_NAVY, OPENRED_ACCENT_RED } from '../styles/boxes';
+import { useLocale } from '../utils/i18nFormat';
+import { darkTokens as T, ACCENT_HEX } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+import { OPENRED_ACCENT_RED } from '../styles/boxes';
 
 interface Props {
   spectrumId: number | null;
@@ -31,21 +35,23 @@ interface Props {
   onClose: () => void;
 }
 
-const BRAND = OPENRED_NAVY;
+const ACCENT = ACCENT_HEX;
 
-// Toggles con estética OpenRed: borde navy, seleccionado en navy sólido
+// Toggles dark: borde sutil, seleccionado en acento cian
 const toggleGroupSx = {
   '& .MuiToggleButton-root': {
     textTransform: 'none',
+    fontFamily: MONO,
     fontWeight: 600,
-    color: OPENRED_NAVY,
-    border: `1px solid ${OPENRED_NAVY}`,
-    px: 1.75,
-    py: 0.4,
+    fontSize: 11,
+    color: T.textMid,
+    border: `1px solid ${T.border}`,
+    px: 1.5,
+    py: 0.3,
     '&.Mui-selected': {
-      backgroundColor: OPENRED_NAVY,
-      color: '#fff',
-      '&:hover': { backgroundColor: OPENRED_NAVY },
+      backgroundColor: ACCENT,
+      color: '#06262a',
+      '&:hover': { backgroundColor: ACCENT },
     },
   },
 };
@@ -76,7 +82,8 @@ const isotopeLabel = (text: string) => ({ viewBox }: any) => (
     transform={`rotate(-90, ${viewBox.x}, ${viewBox.y})`}
     textAnchor="end"
     fontSize={9}
-    fill="#475569"
+    fontFamily="'IBM Plex Mono', monospace"
+    fill="#8b949e"
   >
     {text}
   </text>
@@ -129,7 +136,18 @@ function parseSpectrum(detail: any): ParsedSpectrum | null {
   };
 }
 
+const MetaItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <Typography component="span" sx={{ fontFamily: MONO, fontSize: 12, color: T.text }}>
+    <Box component="span" sx={{ color: T.textMid }}>
+      {label}:
+    </Box>{' '}
+    {value}
+  </Typography>
+);
+
 const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
+  const { t } = useTranslation('filters');
+  const { formatNumber } = useLocale();
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +168,7 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
         if (!cancelled) setDetail(data);
       })
       .catch((err: any) => {
-        if (!cancelled) setError(err?.message || 'Error al cargar el espectro');
+        if (!cancelled) setError(err?.message || t('spectrum.loadError'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -185,40 +203,35 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
   }, [effectiveXMode, chartData]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { overflow: 'hidden' } }}>
       <DialogTitle
         sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontFamily: MONO,
+          fontWeight: 600,
+          fontSize: 12,
+          letterSpacing: '0.6px',
+          textTransform: 'uppercase',
+          color: T.text,
+          bgcolor: T.surface3,
+          borderBottom: `1px solid ${T.hairline}`,
+          py: 1.25,
           pr: 6,
-          fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
-          fontWeight: 700,
-          fontSize: '22px',
-          color: '#fff',
-          bgcolor: OPENRED_NAVY,
         }}
       >
-        Espectro {spectrumId != null ? `#${spectrumId}` : ''}
-        <IconButton
-          onClick={onClose}
-          size="small"
-          sx={{ position: 'absolute', top: 12, right: 12, color: 'rgba(255,255,255,0.9)' }}
-        >
-          <CloseIcon />
+        {spectrumId != null ? t('spectrum.title', { id: `#${spectrumId}` }) : t('spectrum.titleNoId')}
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: T.textMid }}>
+          <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ bgcolor: '#fff', pt: 3 }}>
+      <DialogContent sx={{ pt: 2.5 }}>
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6, gap: 1.5 }}>
-            <CircularProgress size={22} sx={{ color: BRAND }} />
-            <Typography variant="body2" color="text.secondary">
-              Cargando espectro…
-            </Typography>
+            <CircularProgress size={20} sx={{ color: ACCENT }} />
+            <Typography sx={{ fontFamily: MONO, fontSize: 12, color: T.textMid }}>{t('spectrum.loading')}</Typography>
           </Box>
         )}
 
@@ -228,10 +241,10 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
         {!loading && !error && detail && !parsed && (
           <Alert severity="warning">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-              No encontré el array de cuentas en la respuesta.
+              {t('spectrum.noCountsTitle')}
             </Typography>
             <Typography variant="caption" component="div">
-              Campos recibidos: {Object.keys(detail).join(', ')}
+              {t('spectrum.fieldsReceived', { fields: Object.keys(detail).join(', ') })}
             </Typography>
           </Alert>
         )}
@@ -240,15 +253,15 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
           <>
             {/* Metadatos en texto compacto */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2.5, rowGap: 0.5, mb: 2 }}>
-              <MetaItem label="Cuentas" value={parsed.total.toLocaleString('es-ES')} />
-              <MetaItem label="Canales" value={String(parsed.channelCount)} />
+              <MetaItem label={t('spectrum.meta.counts')} value={formatNumber(parsed.total)} />
+              <MetaItem label={t('spectrum.meta.channels')} value={String(parsed.channelCount)} />
               {parsed.durationSec != null && (
-                <MetaItem label="Duración" value={`${parsed.durationSec.toLocaleString('es-ES')} s`} />
+                <MetaItem label={t('spectrum.meta.duration')} value={`${formatNumber(parsed.durationSec)} s`} />
               )}
               {parsed.startLat != null && parsed.startLon != null && (
-                <MetaItem label="Inicio" value={`${parsed.startLat.toFixed(5)}, ${parsed.startLon.toFixed(5)}`} />
+                <MetaItem label={t('spectrum.meta.start')} value={`${parsed.startLat.toFixed(5)}, ${parsed.startLon.toFixed(5)}`} />
               )}
-              {parsed.startAlt != null && <MetaItem label="Alt" value={`${Math.round(parsed.startAlt)} m`} />}
+              {parsed.startAlt != null && <MetaItem label={t('spectrum.meta.altitude')} value={`${Math.round(parsed.startAlt)} m`} />}
             </Box>
 
             {/* Controles */}
@@ -260,8 +273,8 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
                 onChange={(_, v) => v && setLogScale(v === 'log')}
                 sx={toggleGroupSx}
               >
-                <ToggleButton value="log">Log</ToggleButton>
-                <ToggleButton value="linear">Lineal</ToggleButton>
+                <ToggleButton value="log">{t('spectrum.scale.log')}</ToggleButton>
+                <ToggleButton value="linear">{t('spectrum.scale.linear')}</ToggleButton>
               </ToggleButtonGroup>
 
               <ToggleButtonGroup
@@ -272,13 +285,13 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
                 disabled={!parsed.calibrated}
                 sx={toggleGroupSx}
               >
-                <ToggleButton value="energy">keV</ToggleButton>
-                <ToggleButton value="channel">Canal</ToggleButton>
+                <ToggleButton value="energy">{t('spectrum.axis.kev')}</ToggleButton>
+                <ToggleButton value="channel">{t('spectrum.axis.channel')}</ToggleButton>
               </ToggleButtonGroup>
 
               {!parsed.calibrated && (
-                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                  Sin calibración energética → eje por canal
+                <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim, alignSelf: 'center' }}>
+                  {t('spectrum.noCalibration')}
                 </Typography>
               )}
             </Box>
@@ -288,52 +301,61 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
               sx={{
                 height: 380,
                 p: 1.5,
-                bgcolor: '#fff',
-                border: `1px solid ${OPENRED_NAVY}`,
-                borderRadius: 3,
+                bgcolor: T.surface2,
+                border: `1px solid ${T.border}`,
+                borderRadius: '8px',
               }}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
                   <defs>
                     <linearGradient id="spectrumFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={BRAND} stopOpacity={0.7} />
-                      <stop offset="100%" stopColor={BRAND} stopOpacity={0.05} />
+                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.65} />
+                      <stop offset="100%" stopColor={ACCENT} stopOpacity={0.04} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
                     dataKey={effectiveXMode === 'energy' ? 'e' : 'ch'}
                     type="number"
                     domain={['dataMin', 'dataMax']}
-                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    tick={{ fill: '#8b949e', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                     tickFormatter={(v: number) => (effectiveXMode === 'energy' ? Math.round(v).toString() : v.toString())}
                     label={{
-                      value: effectiveXMode === 'energy' ? 'Energía (keV)' : 'Canal',
+                      value: effectiveXMode === 'energy' ? t('spectrum.axis.energy') : t('spectrum.axis.channel'),
                       position: 'insideBottom',
                       offset: -2,
-                      fill: '#64748b',
-                      fontSize: 12,
+                      fill: '#8b949e',
+                      fontSize: 11,
                     }}
                   />
                   <YAxis
                     scale={logScale ? 'log' : 'linear'}
                     domain={logScale ? [1, 'dataMax'] : [0, 'dataMax']}
                     allowDataOverflow
-                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    tick={{ fill: '#8b949e', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
                     width={48}
                   />
                   <Tooltip
-                    formatter={(value: any) => [Number(value).toLocaleString('es-ES'), 'Cuentas']}
+                    formatter={(value: any) => [formatNumber(Number(value)), t('spectrum.tooltip.counts')]}
                     labelFormatter={(v: any) =>
-                      effectiveXMode === 'energy' ? `${Math.round(Number(v))} keV` : `Canal ${v}`
+                      effectiveXMode === 'energy'
+                        ? t('spectrum.tooltip.kev', { value: Math.round(Number(v)) })
+                        : t('spectrum.tooltip.channel', { value: v })
                     }
-                    contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: '#1d232a',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: 6,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: '#e8eaed' }}
+                    itemStyle={{ color: '#e8eaed' }}
                   />
                   <Area
                     type="linear"
                     dataKey="count"
-                    stroke={BRAND}
+                    stroke={ACCENT}
                     strokeWidth={1}
                     fill="url(#spectrumFill)"
                     isAnimationActive={false}
@@ -358,14 +380,5 @@ const SpectrumDialog: React.FC<Props> = ({ spectrumId, open, onClose }) => {
     </Dialog>
   );
 };
-
-const MetaItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <Typography component="span" sx={{ fontSize: '13px', color: '#475569' }}>
-    <Box component="span" sx={{ color: OPENRED_NAVY, fontWeight: 600 }}>
-      {label}:
-    </Box>{' '}
-    {value}
-  </Typography>
-);
 
 export default SpectrumDialog;

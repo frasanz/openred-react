@@ -119,9 +119,92 @@ export const getLightPollutionColorWithAlpha = (value: number): [number, number,
 };
 
 /**
+ * Calcula el color RGB para una temperatura de color (CCT) en Kelvin.
+ * Escala 2000K (cálido, naranja) → 3500K (amarillo) → 5000K (blanco neutro) → 7000K (frío, azul).
+ * Valores fuera del rango se saturan a los extremos.
+ * @param kelvin Temperatura de color en K
+ * @returns Array [R, G, B] con valores 0-255
+ */
+export const getCCTColor = (kelvin: number): [number, number, number] => {
+  if (kelvin <= 2000) {
+    return [255, 130, 40]; // Naranja cálido
+  } else if (kelvin < 3500) {
+    // Naranja cálido → Amarillo (2000-3500K)
+    const t = (kelvin - 2000) / 1500;
+    const red = 255;
+    const green = Math.round(130 + t * 100); // 130 a 230
+    const blue = Math.round(40 + t * 100);   // 40 a 140
+    return [red, green, blue];
+  } else if (kelvin < 5000) {
+    // Amarillo → Blanco neutro (3500-5000K)
+    const t = (kelvin - 3500) / 1500;
+    const red = 255;
+    const green = Math.round(230 + t * 25);  // 230 a 255
+    const blue = Math.round(140 + t * 115);  // 140 a 255
+    return [red, green, blue];
+  } else if (kelvin < 7000) {
+    // Blanco → Azul frío (5000-7000K)
+    const t = (kelvin - 5000) / 2000;
+    const red = Math.round(255 - t * 100);   // 255 a 155
+    const green = Math.round(255 - t * 60);  // 255 a 195
+    const blue = 255;
+    return [red, green, blue];
+  } else {
+    return [155, 195, 255]; // Azul frío saturado
+  }
+};
+
+/**
+ * Leyenda de colores para contaminación lumínica - Temperatura de color (CCT)
+ */
+export const LIGHT_POLLUTION_CCT_LEGEND: LegendItem[] = [
+  {
+    range: '<2700',
+    gradient: 'linear-gradient(to right, rgb(255,130,40), rgb(255,176,84))',
+    label: '<2700 K',
+    qualifierKey: 'legend.cctQuality.veryWarm'
+  },
+  {
+    range: '2700-3500',
+    gradient: 'linear-gradient(to right, rgb(255,176,84), rgb(255,230,140))',
+    label: '2700-3500 K',
+    qualifierKey: 'legend.cctQuality.warm'
+  },
+  {
+    range: '3500-5000',
+    gradient: 'linear-gradient(to right, rgb(255,230,140), rgb(255,255,255))',
+    label: '3500-5000 K',
+    qualifierKey: 'legend.cctQuality.neutral'
+  },
+  {
+    range: '5000-6500',
+    gradient: 'linear-gradient(to right, rgb(255,255,255), rgb(180,217,255))',
+    label: '5000-6500 K',
+    qualifierKey: 'legend.cctQuality.cool'
+  },
+  {
+    range: '>6500',
+    gradient: 'linear-gradient(to right, rgb(180,217,255), rgb(155,195,255))',
+    label: '>6500 K',
+    qualifierKey: 'legend.cctQuality.veryCool'
+  }
+];
+
+/**
+ * Entrada de leyenda. `qualifierKey` es una clave i18n (namespace map) opcional
+ * para cualificadores traducibles (p. ej. calidad del cielo en lux).
+ */
+export interface LegendItem {
+  range: string;
+  gradient: string;
+  label: string;
+  qualifierKey?: string;
+}
+
+/**
  * Leyenda de colores para mostrar en la UI - Radiación
  */
-export const RADIATION_LEGEND = [
+export const RADIATION_LEGEND: LegendItem[] = [
   {
     range: '0-0.08',
     gradient: 'linear-gradient(to right, rgb(0,0,139), rgb(0,100,255))',
@@ -162,35 +245,41 @@ export const RADIATION_LEGEND = [
 /**
  * Leyenda de colores para contaminación lumínica - Escala en lux
  */
-export const LIGHT_POLLUTION_LEGEND = [
+export const LIGHT_POLLUTION_LEGEND: LegendItem[] = [
   {
     range: '<0.001',
     gradient: 'rgb(0,0,80)',
-    label: '<0.001 lux (Excelente)'
+    label: '<0.001 lux',
+    qualifierKey: 'legend.luxQuality.excellent'
   },
   {
     range: '0.001-0.01',
     gradient: 'linear-gradient(to right, rgb(0,0,80), rgb(0,50,180))',
-    label: '0.001-0.01 lux (Bueno)'
+    label: '0.001-0.01 lux',
+    qualifierKey: 'legend.luxQuality.good'
   },
   {
     range: '0.01-0.1',
     gradient: 'linear-gradient(to right, rgb(0,50,180), rgb(0,205,100))',
-    label: '0.01-0.1 lux (Aceptable)'
+    label: '0.01-0.1 lux',
+    qualifierKey: 'legend.luxQuality.acceptable'
   },
   {
     range: '0.1-1.0',
     gradient: 'linear-gradient(to right, rgb(0,205,100), rgb(255,255,0))',
-    label: '0.1-1.0 lux (Moderado)'
+    label: '0.1-1.0 lux',
+    qualifierKey: 'legend.luxQuality.moderate'
   },
   {
     range: '1.0-10',
     gradient: 'linear-gradient(to right, rgb(255,255,0), rgb(255,165,0))',
-    label: '1.0-10 lux (Alto)'
+    label: '1.0-10 lux',
+    qualifierKey: 'legend.luxQuality.high'
   },
   {
     range: '>10',
     gradient: 'linear-gradient(to right, rgb(255,165,0), rgb(255,0,0))',
-    label: '>10 lux (Muy Alto)'
+    label: '>10 lux',
+    qualifierKey: 'legend.luxQuality.veryHigh'
   }
 ];

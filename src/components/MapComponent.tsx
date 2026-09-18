@@ -4,8 +4,10 @@ import { H3HexagonLayer } from '@deck.gl/geo-layers';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import { Map, Source, Layer } from 'react-map-gl';
 import { WebMercatorViewport } from '@deck.gl/core';
+import { useTranslation } from 'react-i18next';
+import { useLocale } from '../utils/i18nFormat';
 import './MapComponent.css';
-import { getRadiationColor, RADIATION_LEGEND, getLightPollutionColor, LIGHT_POLLUTION_LEGEND } from '../utils/radiationColors';
+import { getRadiationColor, RADIATION_LEGEND, getLightPollutionColor, LIGHT_POLLUTION_LEGEND, getCCTColor, LIGHT_POLLUTION_CCT_LEGEND } from '../utils/radiationColors';
 import {
   Box,
   Paper,
@@ -16,43 +18,34 @@ import {
   useMediaQuery,
   useTheme,
   Drawer,
-  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { Measurement, Campaign, Project, AdaptiveFilters, CommonFilters, RadiationFilters, RadiationSpectrumMarker } from '../types';
+import { Measurement, Campaign, Project, AdaptiveFilters, CommonFilters, RadiationFilters, RadiationSpectrumMarker, PublicStation } from '../types';
 import { HistogramFetchParams } from '../hooks/useMeasurementsByZoom';
 import { useSpectraMarkers } from '../hooks/useSpectraMarkers';
+import { useStationMarkers } from '../hooks/useStationMarkers';
 import SpectrumDialog from './SpectrumDialog';
-import { OPENRED_NAVY } from '../styles/boxes';
+import StationDialog from './StationDialog';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+import { FloatPanel } from './ui/FloatPanel';
+import { ToggleRow } from './ui/ToggleRow';
+import { StatusDot } from './ui/StatusDot';
 import FiltersPanel from './FiltersPanel';
 import { Mission } from '../types';
 
-// Helper function to format dates without date-fns
-const formatDate = (date: Date, format: string): string => {
-  const d = new Date(date);
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = d.getHours().toString().padStart(2, '0');
-  const minutes = d.getMinutes().toString().padStart(2, '0');
-  
-  const monthNames = [
-    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-  ];
-  
-  switch (format) {
-    case 'dd/MM/yyyy HH:mm':
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    case 'dd MMM yyyy':
-      return `${day} ${monthNames[d.getMonth()]} ${year}`;
-    case 'dd/MM/yy':
-      return `${day}/${month}/${year.toString().slice(-2)}`;
-    default:
-      return d.toLocaleDateString('es-ES');
-  }
-};
+// Capa SDGSAT-1 (Lost at Night). Teselas TMS, cobertura Europa y UK, zoom 5 a 13.
+// lostatnight.org no envia cabeceras CORS, asi que las teselas se piden al propio
+// origen de la app bajo /sdgsat_tiles/ (proxy en src/setupProxy.js en desarrollo,
+// nginx en produccion). REACT_APP_SDGSAT_TILES_URL permite apuntar a otro servidor.
+const SDGSAT_TILES_URL =
+  process.env.REACT_APP_SDGSAT_TILES_URL ||
+  `${window.location.origin}/sdgsat_tiles/{z}/{x}/{y}.png`;
+const SDGSAT_BOUNDS: [number, number, number, number] = [-25, 34, 45, 72];
+const SDGSAT_ATTRIBUTION = '<a href="https://lostatnight.org" target="_blank" rel="noopener">Lost at Night</a> / SDGSAT-1';
 
 // Mapbox token - verificar si es válido
 const MAPBOX_ACCESS_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
@@ -69,6 +62,13 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
+// Estado de estación → kind de StatusDot (mismos colores que el resto de la app).
+const stationStatusKind = (status?: string): 'ok' | 'danger' | 'info' => {
+  if (status === 'online') return 'ok';
+  if (status === 'offline') return 'danger';
+  return 'info';
+};
+
 
 interface HoveredObject {
   measurement?: Measurement;
@@ -80,6 +80,7 @@ interface HoveredObject {
     [key: string]: any;
   };
   spectrum?: RadiationSpectrumMarker;
+  station?: PublicStation;
   count?: number;
   avgRadiation?: number;
   totalWeight?: number;
@@ -127,67 +128,146 @@ interface MapComponentProps {
   };
 }
 
-// --- Estilos compartidos de los tooltips del mapa ---
-const TIP_LABEL = '#64748b';
-const TIP_VALUE = '#1a202c';
+// --- Estilos compartidos de los tooltips del mapa (dark) ---
+const TIP_LABEL = T.textMid;
+const TIP_VALUE = T.text;
 
 const tipCardSx = {
   position: 'absolute' as const,
   zIndex: 1000,
   pointerEvents: 'none' as const,
-  backgroundColor: 'rgba(255,255,255,0.98)',
+  backgroundColor: 'rgba(18,22,27,0.96)',
   backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(7,81,164,0.18)',
-  borderRadius: '12px',
-  boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+  border: `1px solid ${T.border}`,
+  borderRadius: '8px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.32)',
   overflow: 'hidden',
   minWidth: 190,
   maxWidth: 300,
   transform: 'translate(14px, 14px)',
+  color: T.text,
 };
 
 const tipHeaderSx = {
-  bgcolor: OPENRED_NAVY,
-  color: '#fff',
-  px: 2,
-  py: 0.9,
-  fontWeight: 700,
-  fontSize: '12.5px',
-  letterSpacing: '0.3px',
+  bgcolor: T.surface3,
+  color: T.text,
+  px: 1.5,
+  py: 0.75,
+  fontFamily: MONO,
+  fontWeight: 600,
+  fontSize: '10.5px',
+  letterSpacing: '0.6px',
+  textTransform: 'uppercase' as const,
+  borderBottom: `1px solid ${T.hairline}`,
 };
 
-const tipBodySx = { px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 };
+const tipBodySx = { px: 1.5, py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 };
 
 const tipSectionSx = {
   mt: 1,
   pt: 1,
-  borderTop: '1px solid rgba(0,0,0,0.08)',
+  borderTop: `1px dashed ${T.hairline}`,
   display: 'flex',
   flexDirection: 'column',
   gap: 0.5,
 };
 
 const tipSectionTitleSx = {
-  fontSize: '10.5px',
-  fontWeight: 700,
-  color: OPENRED_NAVY,
+  fontFamily: MONO,
+  fontSize: '10px',
+  fontWeight: 600,
+  color: T.textMid,
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.4px',
+  letterSpacing: '0.5px',
 };
 
 const TipRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
     <Typography sx={{ fontSize: '11.5px', color: TIP_LABEL, whiteSpace: 'nowrap' }}>{label}</Typography>
-    <Typography sx={{ fontSize: '11.5px', color: TIP_VALUE, fontWeight: 600, textAlign: 'right' }}>{value}</Typography>
+    <Typography sx={{ fontFamily: MONO, fontSize: '11.5px', color: TIP_VALUE, fontWeight: 500, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
   </Box>
 );
 
 const TipHeadline: React.FC<{ value: string; unit: string }> = ({ value, unit }) => (
   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.5 }}>
-    <Typography sx={{ fontSize: '22px', fontWeight: 700, lineHeight: 1, color: OPENRED_NAVY }}>{value}</Typography>
-    <Typography sx={{ fontSize: '12px', color: TIP_LABEL }}>{unit}</Typography>
+    <Typography sx={{ fontFamily: MONO, fontSize: '22px', fontWeight: 600, lineHeight: 1, color: T.accent, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+    <Typography sx={{ fontFamily: MONO, fontSize: '12px', color: TIP_LABEL }}>{unit}</Typography>
   </Box>
 );
+
+// --- Marcador persistente de estación (mismo lenguaje visual que el tooltip: tipCardSx) ---
+const stationBadgeSx = {
+  position: 'relative' as const,
+  pointerEvents: 'auto' as const,
+  cursor: 'pointer',
+  backgroundColor: 'rgba(18,22,27,0.96)',
+  backdropFilter: 'blur(10px)',
+  border: `1px solid ${T.border}`,
+  borderRadius: '6px',
+  boxShadow: '0 4px 14px rgba(0,0,0,0.32)',
+  overflow: 'visible',
+  color: T.text,
+  minWidth: 60,
+};
+
+const stationBadgeHeaderSx = {
+  bgcolor: T.surface3,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0.5,
+  px: 0.75,
+  py: 0.375,
+  borderBottom: `1px solid ${T.hairline}`,
+  borderTopLeftRadius: '6px',
+  borderTopRightRadius: '6px',
+};
+
+const stationBadgeBodySx = { px: 0.75, py: 0.5, display: 'flex', flexDirection: 'column', gap: 0.125 };
+
+const stationBadgeTailSx = {
+  position: 'absolute' as const,
+  left: '50%',
+  bottom: -6,
+  width: 0,
+  height: 0,
+  transform: 'translateX(-50%)',
+  borderLeft: '6px solid transparent',
+  borderRight: '6px solid transparent',
+  borderTop: '6px solid rgba(18,22,27,0.96)',
+};
+
+// Fila de estadística para el panel DOSE STATISTICS
+const StatRow: React.FC<{ label: string; value: string; unit?: string; valueColor?: string }> = ({ label, value, unit, valueColor }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', py: 0.3 }}>
+    <Typography sx={{ fontSize: 11, color: T.textMid }}>{label}</Typography>
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+      <Typography sx={{ fontFamily: MONO, fontSize: 11, color: valueColor || T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+      {unit && <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{unit}</Typography>}
+    </Box>
+  </Box>
+);
+
+// Helpers de chrome del mapa
+const fmtLat = (lat: number) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
+const fmtLon = (lon: number) => `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+
+// Escala (metros/píxel -> distancia "redonda" y su ancho en px)
+// formatNumber se inyecta desde el componente para respetar el locale activo.
+const computeScale = (
+  lat: number,
+  zoom: number,
+  formatNumber: (value: number) => string,
+): { px: number; label: string } => {
+  const mpp = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+  const target = mpp * 100; // ~100px
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const f = target / pow;
+  const nice = f >= 5 ? 5 : f >= 2 ? 2 : 1;
+  const dist = nice * pow; // metros
+  const px = dist / mpp;
+  const label = dist >= 1000 ? `${formatNumber(dist / 1000)} km` : `${Math.round(dist)} m`;
+  return { px, label };
+};
 
 const MapComponent: React.FC<MapComponentProps> = ({
   measurements,
@@ -222,7 +302,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+  const { t } = useTranslation('map');
+  const { formatNumber, formatDateTime } = useLocale();
+
   // Ref para zoom en cada frame (no dispara re-render)
   const zoomRef = React.useRef<number>(INITIAL_VIEW_STATE.zoom);
   // Estado solo para el useMemo de layers — solo actualiza al cruzar nivel entero
@@ -230,21 +312,73 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const [hoveredObject, setHoveredObject] = useState<HoveredObject | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  // Contenedor del mapa: para reenviar la rueda del ratón al canvas de deck.gl cuando
+  // pasa por encima de un badge de estación (el badge sí debe atrapar el click, pero
+  // no debe bloquear el zoom del mapa).
+  const mapPaperRef = React.useRef<HTMLDivElement>(null);
+  const forwardWheelToMap = useCallback((e: React.WheelEvent) => {
+    const canvas = mapPaperRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    canvas.dispatchEvent(
+      new WheelEvent('wheel', {
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  }, []);
   // Por defecto colapsado en móvil, expandido en desktop
   const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(isMobile);
   // Estado para la capa MARNA
   const [showMarnaLayer, setShowMarnaLayer] = useState<boolean>(false);
+  // Estado para la capa SDGSAT (Lost at Night, solo proyectos de contaminacion luminica)
+  const [showSdgsatLayer, setShowSdgsatLayer] = useState<boolean>(false);
   const [isSatellite, setIsSatellite] = useState<boolean>(false);
   // Estado para la capa de espectros (solo proyectos de radiación)
   const [showSpectra, setShowSpectra] = useState<boolean>(false);
+  // Estado para la capa de estaciones estáticas (solo proyectos de radiación); visible por defecto
+  const [showStations, setShowStations] = useState<boolean>(true);
   // Espectro seleccionado (abre el diálogo con el histograma)
   const [selectedSpectrumId, setSelectedSpectrumId] = useState<number | null>(null);
+  // Estación seleccionada (abre el diálogo con el histórico de lecturas)
+  const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
+  // Modo de color para contaminación lumínica: iluminación (lux) o temperatura (CCT)
+  const [lightPollutionColorMode, setLightPollutionColorMode] = useState<'illumination' | 'cct'>('illumination');
+
+  // Cámara NO controlada (initialViewState) para que el zoom con rueda vaya 100% suave.
+  // viewState solo se usa para refrescar los overlays (coordinate readout / scale bar);
+  // NO se le pasa a deck.gl, así sus re-renders no tocan la cámara.
+  const [viewState, setViewState] = useState<any>(INITIAL_VIEW_STATE);
+
+  // Controller estable (objeto memoizado) para no reinicializar la interacción en cada render.
+  const deckController = useMemo(
+    () => ({
+      dragPan: true,
+      dragRotate: true,
+      scrollZoom: true,
+      touchZoom: true,
+      touchRotate: true,
+      keyboard: true,
+      doubleClickZoom: true,
+    }),
+    []
+  );
 
   const isRadiation = selectedProject?.project_type === 'radiation';
 
   // Marcadores de espectros: se cargan al activar el switch (todos los del proyecto)
   const { spectra } = useSpectraMarkers({
     enabled: showSpectra && isRadiation,
+    projectId: selectedProject?.id,
+  });
+
+  // Estaciones estáticas: se cargan al activar el switch (todas las del proyecto)
+  const { stations } = useStationMarkers({
+    enabled: showStations && isRadiation,
     projectId: selectedProject?.id,
   });
 
@@ -299,13 +433,20 @@ const MapComponent: React.FC<MapComponentProps> = ({
           elevationScale: elevationScale,
           getHexagon: (d: any) => d.h3_index,
           getFillColor: (d: any) => {
-            const value = d.avg_value || 0;
             // Usar la función de color apropiada según el tipo de proyecto
             if (selectedProject?.project_type === 'light_pollution') {
-              return getLightPollutionColor(value);
+              if (lightPollutionColorMode === 'cct') {
+                const cct = d.avg_cct;
+                if (cct == null) return [120, 120, 120]; // gris si no hay CCT
+                return getCCTColor(cct);
+              }
+              return getLightPollutionColor(d.avg_value || 0);
             } else {
-              return getRadiationColor(value);
+              return getRadiationColor(d.avg_value || 0);
             }
+          },
+          updateTriggers: {
+            getFillColor: [selectedProject?.project_type, lightPollutionColorMode],
           },
           getElevation: (d: any) => d.measurement_count * 5,
           opacity: 0.8,
@@ -350,10 +491,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
           getRadius: 6,
           getFillColor: (d: Measurement) => {
             // Usar color según el tipo de proyecto
-            if (selectedProject?.project_type === 'light_pollution' && 'lux' in d && d.lux !== undefined) {
-              // Para contaminación lumínica, usar lux
-              const color = getLightPollutionColor(d.lux as number);
-              return [color[0], color[1], color[2], 200];
+            if (selectedProject?.project_type === 'light_pollution') {
+              if (lightPollutionColorMode === 'cct') {
+                if ('cct' in d && d.cct != null) {
+                  const color = getCCTColor(d.cct as number);
+                  return [color[0], color[1], color[2], 200];
+                }
+                return [120, 120, 120, 200]; // gris si no hay CCT
+              }
+              if ('lux' in d && d.lux !== undefined) {
+                const color = getLightPollutionColor(d.lux as number);
+                return [color[0], color[1], color[2], 200];
+              }
             } else if ('dose_rate' in d && d.dose_rate !== undefined) {
               // Para radiación, usar dose_rate
               const color = getRadiationColor(d.dose_rate as number);
@@ -361,6 +510,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
             }
             // Color por defecto (naranja)
             return [255, 140, 0, 200];
+          },
+          updateTriggers: {
+            getFillColor: [selectedProject?.project_type, lightPollutionColorMode],
           },
           onHover: (info: any) => {
             if (info.object) {
@@ -420,7 +572,28 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
 
     return result;
-  }, [isUsingH3, h3Data, measurements, zoomLevel, selectedProject, showSpectra, spectra]);
+  }, [isUsingH3, h3Data, measurements, zoomLevel, selectedProject, showSpectra, spectra, lightPollutionColorMode]);
+
+  // Posición en pantalla (px) de cada estación, recalculada con cada cambio de cámara.
+  // Los marcadores de estación se pintan como overlay DOM propio (no <Marker> de
+  // react-map-gl dentro de <Map>) porque el canvas de deck.gl se compone POR ENCIMA del
+  // mapa base y se queda con todos los clics/hover, aunque el marcador se vea debajo.
+  const projectedStations = useMemo(() => {
+    if (!showStations || !isRadiation || stations.length === 0) return [];
+    try {
+      const viewport = new WebMercatorViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        ...viewState,
+      });
+      return stations.map((station) => {
+        const [x, y] = viewport.project([station.longitude, station.latitude]);
+        return { station, x, y };
+      });
+    } catch (error) {
+      return [];
+    }
+  }, [showStations, isRadiation, stations, viewState]);
 
   // Renderizar tooltip memoizado
   const renderTooltip = useCallback(() => {
@@ -431,13 +604,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
     const hex = hoveredObject.hexagon;
     const sg = hoveredObject.screenGrid;
     const sp = hoveredObject.spectrum;
+    const st = hoveredObject.station;
     const isLP = selectedProject?.project_type === 'light_pollution';
 
     return (
       <Paper elevation={0} sx={{ ...tipCardSx, left: x, top: y }}>
         {m && (
           <>
-            <Box sx={tipHeaderSx}>Medición</Box>
+            <Box sx={tipHeaderSx}>{t('tooltip.measurement')}</Box>
             <Box sx={tipBodySx}>
               {isLP ? (
                 'lux' in m && m.lux != null ? (
@@ -450,39 +624,52 @@ const MapComponent: React.FC<MapComponentProps> = ({
               )}
 
               {isLP && 'cct' in m && m.cct != null && (
-                <TipRow label="CCT" value={`${Math.round(m.cct)} K`} />
+                <TipRow label={t('tooltip.cct')} value={`${Math.round(m.cct)} K`} />
               )}
               {isLP && 'brightness' in m && m.brightness != null && (
-                <TipRow label="Brillo" value={m.brightness.toFixed(2)} />
+                <TipRow label={t('tooltip.brightness')} value={m.brightness.toFixed(2)} />
               )}
-              {!isLP && 'count_rate' in m && m.count_rate != null && (
-                <TipRow label="Tasa de cuentas" value={`${m.count_rate.toFixed(2)} CPM`} />
+              {!isLP && (('cpm' in m && m.cpm != null) || ('count_rate' in m && m.count_rate != null)) && (
+                <TipRow
+                  label={t('tooltip.countRate')}
+                  value={`${(('cpm' in m && m.cpm != null ? m.cpm : (m as { count_rate?: number }).count_rate)!).toFixed(2)} CPM`}
+                />
               )}
               {'speed' in m && m.speed != null && (
-                <TipRow label="Velocidad" value={`${(m.speed * 3.6).toFixed(1)} km/h`} />
+                <TipRow label={t('tooltip.speed')} value={`${(m.speed * 3.6).toFixed(1)} km/h`} />
               )}
-              <TipRow label="Latitud" value={Number(m.latitude).toFixed(6)} />
-              <TipRow label="Longitud" value={Number(m.longitude).toFixed(6)} />
-              {m.altitude && <TipRow label="Altitud" value={`${Math.round(m.altitude)} m`} />}
-              <TipRow label="Fecha" value={formatDate(new Date(m.dateTime), 'dd/MM/yyyy HH:mm')} />
+              <TipRow label={t('tooltip.latitude')} value={Number(m.latitude).toFixed(6)} />
+              <TipRow label={t('tooltip.longitude')} value={Number(m.longitude).toFixed(6)} />
+              {m.altitude && <TipRow label={t('tooltip.altitude')} value={`${Math.round(m.altitude)} m`} />}
+              <TipRow
+                label={t('tooltip.date')}
+                value={formatDateTime(new Date(m.dateTime), {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                })}
+              />
 
               {m.weather_cache && (
                 <Box sx={tipSectionSx}>
-                  <Typography sx={tipSectionTitleSx}>Meteorología</Typography>
+                  <Typography sx={tipSectionTitleSx}>{t('tooltip.weather')}</Typography>
                   {m.weather_cache.temperature != null && (
-                    <TipRow label="Temperatura" value={`${m.weather_cache.temperature.toFixed(1)} °C`} />
+                    <TipRow label={t('tooltip.temperature')} value={`${m.weather_cache.temperature.toFixed(1)} °C`} />
                   )}
                   {m.weather_cache.humidity != null && (
-                    <TipRow label="Humedad" value={`${m.weather_cache.humidity.toFixed(0)} %`} />
+                    <TipRow label={t('tooltip.humidity')} value={`${m.weather_cache.humidity.toFixed(0)} %`} />
                   )}
                   {m.weather_cache.pressure != null && (
-                    <TipRow label="Presión" value={`${m.weather_cache.pressure.toFixed(0)} hPa`} />
+                    <TipRow label={t('tooltip.pressure')} value={`${m.weather_cache.pressure.toFixed(0)} hPa`} />
                   )}
                   {m.weather_cache.wind_speed != null && m.weather_cache.wind_direction != null && (
-                    <TipRow label="Viento" value={`${m.weather_cache.wind_speed.toFixed(1)} m/s (${m.weather_cache.wind_direction.toFixed(0)}°)`} />
+                    <TipRow label={t('tooltip.wind')} value={`${m.weather_cache.wind_speed.toFixed(1)} m/s (${m.weather_cache.wind_direction.toFixed(0)}°)`} />
                   )}
                   {m.weather_cache.cloud_cover != null && (
-                    <TipRow label="Nubosidad" value={`${m.weather_cache.cloud_cover.toFixed(0)} %`} />
+                    <TipRow label={t('tooltip.cloudCover')} value={`${m.weather_cache.cloud_cover.toFixed(0)} %`} />
                   )}
                 </Box>
               )}
@@ -498,31 +685,31 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         {hex && (
           <>
-            <Box sx={tipHeaderSx}>Cluster de mediciones</Box>
+            <Box sx={tipHeaderSx}>{t('tooltip.cluster')}</Box>
             <Box sx={tipBodySx}>
               {isLP ? (
-                <TipHeadline value={(hoveredObject.avgRadiation || 0).toFixed(4)} unit="lux (media)" />
+                <TipHeadline value={(hoveredObject.avgRadiation || 0).toFixed(4)} unit={t('tooltip.luxMean')} />
               ) : (
-                <TipHeadline value={(hoveredObject.avgRadiation || 0).toFixed(3)} unit="µSv/h (media)" />
+                <TipHeadline value={(hoveredObject.avgRadiation || 0).toFixed(3)} unit={t('tooltip.doseMean')} />
               )}
-              <TipRow label="Mediciones" value={(hoveredObject.count || 0).toLocaleString('es-ES')} />
+              <TipRow label={t('tooltip.measurements')} value={formatNumber(hoveredObject.count || 0)} />
               {isLP ? (
                 <>
-                  {hex.min_value !== undefined && <TipRow label="Mínimo" value={`${hex.min_value.toFixed(4)} lux`} />}
-                  {hex.max_value !== undefined && <TipRow label="Máximo" value={`${hex.max_value.toFixed(4)} lux`} />}
-                  {hex.avg_cct != null && <TipRow label="CCT media" value={`${Math.round(hex.avg_cct)} K`} />}
-                  {hex.min_cct != null && <TipRow label="CCT mín." value={`${Math.round(hex.min_cct)} K`} />}
-                  {hex.max_cct != null && <TipRow label="CCT máx." value={`${Math.round(hex.max_cct)} K`} />}
+                  {hex.min_value !== undefined && <TipRow label={t('tooltip.min')} value={`${hex.min_value.toFixed(4)} lux`} />}
+                  {hex.max_value !== undefined && <TipRow label={t('tooltip.max')} value={`${hex.max_value.toFixed(4)} lux`} />}
+                  {hex.avg_cct != null && <TipRow label={t('tooltip.cctMean')} value={`${Math.round(hex.avg_cct)} K`} />}
+                  {hex.min_cct != null && <TipRow label={t('tooltip.cctMin')} value={`${Math.round(hex.min_cct)} K`} />}
+                  {hex.max_cct != null && <TipRow label={t('tooltip.cctMax')} value={`${Math.round(hex.max_cct)} K`} />}
                 </>
               ) : (
                 <>
-                  {hex.min_value !== undefined && <TipRow label="Mínimo" value={`${hex.min_value.toFixed(3)} µSv/h`} />}
-                  {hex.max_value !== undefined && <TipRow label="Máximo" value={`${hex.max_value.toFixed(3)} µSv/h`} />}
-                  {hex.std_value !== undefined && <TipRow label="Desv. estándar" value={`${hex.std_value.toFixed(3)} µSv/h`} />}
+                  {hex.min_value !== undefined && <TipRow label={t('tooltip.min')} value={`${hex.min_value.toFixed(3)} µSv/h`} />}
+                  {hex.max_value !== undefined && <TipRow label={t('tooltip.max')} value={`${hex.max_value.toFixed(3)} µSv/h`} />}
+                  {hex.std_value !== undefined && <TipRow label={t('tooltip.stdDev')} value={`${hex.std_value.toFixed(3)} µSv/h`} />}
                 </>
               )}
               <Typography sx={{ mt: 0.75, fontSize: '10.5px', color: TIP_LABEL, fontStyle: 'italic' }}>
-                Haz zoom (≥16) para ver mediciones individuales
+                {t('tooltip.zoomHint')}
               </Typography>
             </Box>
           </>
@@ -530,37 +717,73 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         {sg && (
           <>
-            <Box sx={tipHeaderSx}>Cuadrícula de datos</Box>
+            <Box sx={tipHeaderSx}>{t('tooltip.dataGrid')}</Box>
             <Box sx={tipBodySx}>
-              <TipRow label="Mediciones" value={hoveredObject.count || 0} />
-              <TipRow label="Valor total" value={(hoveredObject.totalWeight || 0).toFixed(2)} />
-              <TipRow label="Valor promedio" value={((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} />
+              <TipRow label={t('tooltip.measurements')} value={hoveredObject.count || 0} />
+              <TipRow label={t('tooltip.totalValue')} value={(hoveredObject.totalWeight || 0).toFixed(2)} />
+              <TipRow label={t('tooltip.avgValue')} value={((hoveredObject.totalWeight || 0) / (hoveredObject.count || 1)).toFixed(2)} />
             </Box>
           </>
         )}
 
         {sp && (
           <>
-            <Box sx={tipHeaderSx}>Espectro #{sp.id}</Box>
+            <Box sx={tipHeaderSx}>{t('tooltip.spectrum', { id: sp.id })}</Box>
             <Box sx={tipBodySx}>
-              <TipRow label="Latitud" value={Number(sp.latitude).toFixed(6)} />
-              <TipRow label="Longitud" value={Number(sp.longitude).toFixed(6)} />
-              <Typography sx={{ mt: 0.75, fontSize: '10.5px', color: OPENRED_NAVY, fontWeight: 600 }}>
-                Haz clic para ver el espectro
+              <TipRow label={t('tooltip.latitude')} value={Number(sp.latitude).toFixed(6)} />
+              <TipRow label={t('tooltip.longitude')} value={Number(sp.longitude).toFixed(6)} />
+              <Typography sx={{ mt: 0.75, fontSize: '10.5px', color: T.accent, fontWeight: 600 }}>
+                {t('tooltip.spectrumClickHint')}
+              </Typography>
+            </Box>
+          </>
+        )}
+
+        {st && (
+          <>
+            <Box sx={tipHeaderSx}>{st.name}</Box>
+            <Box sx={tipBodySx}>
+              <TipRow label={t('tooltip.status')} value={t(`stationStatus.${st.status ?? 'unknown'}`)} />
+              {st.last_dose_rate != null && (
+                <TipHeadline value={st.last_dose_rate.toFixed(3)} unit="µSv/h" />
+              )}
+              <TipRow
+                label={t('tooltip.lastMeasurement')}
+                value={
+                  st.last_measurement_at
+                    ? formatDateTime(new Date(st.last_measurement_at), {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })
+                    : t('tooltip.neverMeasured')
+                }
+              />
+              {st.measurements_24h != null && (
+                <TipRow label={t('tooltip.measurements24h')} value={formatNumber(st.measurements_24h)} />
+              )}
+              <TipRow label={t('tooltip.altitude')} value={st.altitude != null ? `${Math.round(st.altitude)} m` : '—'} />
+              <Typography sx={{ mt: 0.75, fontSize: '10.5px', color: T.accent, fontWeight: 600 }}>
+                {t('tooltip.stationClickHint')}
               </Typography>
             </Box>
           </>
         )}
       </Paper>
     );
-  }, [hoveredObject, hoverInfo, getMeasurementValue, getMeasurementUnit, selectedProject?.project_type]);
+  }, [hoveredObject, hoverInfo, getMeasurementValue, getMeasurementUnit, selectedProject?.project_type, t, formatNumber, formatDateTime]);
 
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      width: '100%',
-      position: 'relative'
-    }}>
+    <Box
+      sx={{
+        height: '100vh',
+        width: '100%',
+        position: 'relative'
+      }}
+    >
       {/* Drawer - Panel lateral con filtros */}
       <Drawer
         anchor="left"
@@ -577,38 +800,37 @@ const MapComponent: React.FC<MapComponentProps> = ({
         sx={{
           zIndex: 1100,
           '& .MuiDrawer-paper': {
-            width: { xs: '85vw', md: 400 },
+            width: { xs: '85vw', md: 360 },
             boxSizing: 'border-box',
             border: 'none',
-            backgroundColor: '#cddced',
-            top: 80,
-            height: 'calc(100vh - 80px)',
-            borderTopRightRadius: '16px',
-            borderBottomRightRadius: 0,
-            borderTopLeftRadius: 0,
-            borderBottomLeftRadius: 0,
+            borderRight: `1px solid ${T.border}`,
+            backgroundColor: T.surface,
+            backgroundImage: 'none',
+            top: 48,
+            height: 'calc(100vh - 48px)',
+            borderRadius: 0,
           },
         }}
       >
         {/* Contenido del panel con botón de colapsar integrado */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: 3, position: 'relative' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', px: 3, pt: 2, pb: 3, position: 'relative' }}>
           {/* Botón para colapsar dentro del drawer */}
           <IconButton 
             onClick={() => setFiltersCollapsed(true)}
             size="small"
-            sx={{ 
+            sx={{
               position: 'absolute',
               top: 16,
               right: 16,
-              color: '#64748b',
+              color: T.textMid,
               zIndex: 1,
             }}
           >
             <ChevronLeftIcon />
           </IconButton>
           
-          <Box sx={{ mt: 6 }}>
-            <FiltersPanel 
+          <Box sx={{ mt: 0 }}>
+            <FiltersPanel
               measurements={measurements}
               filteredMeasurements={filteredMeasurements}
               selectedProject={selectedProject}
@@ -652,13 +874,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
           <IconButton
             onClick={() => setFiltersCollapsed(false)}
             sx={{
-              backgroundColor: '#cddced',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              border: 'none',
+              backgroundColor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              color: T.text,
+              backdropFilter: 'blur(8px)',
               '&:hover': {
-                backgroundColor: '#b8c9de',
-                boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-              }
+                backgroundColor: T.surface3,
+              },
             }}
           >
             <ChevronRightIcon />
@@ -682,35 +904,32 @@ const MapComponent: React.FC<MapComponentProps> = ({
               left: '50%', 
               transform: 'translateX(-50%)', 
               zIndex: 1000,
-              backgroundColor: 'rgba(255,255,255,0.95)',
-              borderRadius: 3,
-              p: 2,
+              backgroundColor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              borderRadius: '8px',
+              px: 2,
+              py: 1.25,
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.32)',
               backdropFilter: 'blur(10px)',
             }}
           >
-            <CircularProgress size={20} />
-            <Typography variant="body2">Cargando mediciones...</Typography>
+            <CircularProgress size={16} sx={{ color: T.accent }} />
+            <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid }}>{t('loadingMeasurements')}</Typography>
           </Box>
         )}
         
-        <Paper elevation={0} sx={{ height: '100%', borderRadius: 0, overflow: 'hidden' }}>
+        <Paper ref={mapPaperRef} elevation={0} sx={{ height: '100%', borderRadius: 0, overflow: 'hidden' }}>
           <DeckGL
             initialViewState={INITIAL_VIEW_STATE}
-            controller={{
-              dragPan: true,
-              dragRotate: true, // Permitir rotación del mapa
-              scrollZoom: true,
-              touchZoom: true,
-              touchRotate: true, // Permitir rotación táctil
-              keyboard: true,
-              doubleClickZoom: true
-            }}
+            controller={deckController}
             layers={layers}
             onViewStateChange={({viewState: newViewState}: any) => {
+              // Solo refrescar overlays (no se realimenta a deck: cámara no controlada)
+              setViewState(newViewState);
+
               // Actualizar ref sin disparar re-render
               zoomRef.current = newViewState.zoom;
 
@@ -764,7 +983,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
           >
             <Map
               mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-              mapStyle={isSatellite ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/light-v10'}
+              mapStyle={isSatellite ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/dark-v11'}
+              projection={{ name: 'mercator' }}
               reuseMaps
             >
               {showMarnaLayer && (
@@ -786,9 +1006,81 @@ const MapComponent: React.FC<MapComponentProps> = ({
                   />
                 </>
               )}
+              {showSdgsatLayer && selectedProject?.project_type === 'light_pollution' && (
+                <>
+                  <Source
+                    id="sdgsat-tiles"
+                    type="raster"
+                    tiles={[SDGSAT_TILES_URL]}
+                    tileSize={256}
+                    scheme="tms"
+                    minzoom={5}
+                    maxzoom={13}
+                    bounds={SDGSAT_BOUNDS}
+                    attribution={SDGSAT_ATTRIBUTION}
+                  />
+                  <Layer
+                    id="sdgsat-layer"
+                    type="raster"
+                    source="sdgsat-tiles"
+                    paint={{
+                      'raster-opacity': 0.8
+                    }}
+                  />
+                </>
+              )}
+
             </Map>
           </DeckGL>
-          
+
+          {/* Estaciones estáticas: overlay DOM propio (por ENCIMA del canvas de deck.gl,
+              que si no se queda con todos los clics aunque el marcador se vea "debajo") */}
+          {projectedStations.length > 0 && (
+            <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 }}>
+              {projectedStations.map(({ station, x, y }) => (
+                <Box
+                  key={station.id}
+                  sx={{ ...stationBadgeSx, position: 'absolute', left: x, top: y, transform: 'translate(-50%, -100%)', pointerEvents: 'auto' }}
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    setSelectedStationId(station.id);
+                  }}
+                  onWheel={forwardWheelToMap}
+                  onMouseEnter={() => {
+                    setHoveredObject({ station });
+                    setHoverInfo({ x, y });
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredObject(null);
+                    setHoverInfo(null);
+                  }}
+                >
+                  <Box sx={stationBadgeHeaderSx}>
+                    <StatusDot kind={stationStatusKind(station.status)} size={6} />
+                    <Typography
+                      noWrap
+                      sx={{ fontFamily: MONO, fontSize: '9px', fontWeight: 600, letterSpacing: '0.3px', color: T.text, maxWidth: 90 }}
+                    >
+                      {station.name}
+                    </Typography>
+                  </Box>
+                  <Box sx={stationBadgeBodySx}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                      <Typography sx={{ fontFamily: MONO, fontSize: '13px', fontWeight: 600, lineHeight: 1, color: T.accent, fontVariantNumeric: 'tabular-nums' }}>
+                        {station.last_dose_rate != null ? station.last_dose_rate.toFixed(2) : '-'}
+                      </Typography>
+                      <Typography sx={{ fontFamily: MONO, fontSize: '9px', color: TIP_LABEL }}>µSv/h</Typography>
+                    </Box>
+                    <Typography sx={{ fontFamily: MONO, fontSize: '9px', color: TIP_LABEL, fontVariantNumeric: 'tabular-nums' }}>
+                      24h: {station.avg_dose_rate_24h != null ? station.avg_dose_rate_24h.toFixed(2) : '-'}
+                    </Typography>
+                  </Box>
+                  <Box sx={stationBadgeTailSx} />
+                </Box>
+              ))}
+            </Box>
+          )}
+
           {/* Debug info overlay - OCULTO */}
           {false && (
             <div style={{
@@ -823,78 +1115,192 @@ const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           )}
           
-          {/* Control para capa MARNA - Arriba a la derecha - Solo para proyectos de radiación */}
-          {selectedProject?.project_type === 'radiation' && (
-            <Box sx={{
+          {/* Coordinate readout (arriba-izquierda) */}
+          <Box
+            sx={{
               position: 'absolute',
-              top: { xs: 10, md: 20 },
-              right: { xs: 10, md: 20 },
-              background: 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(10px)',
-              padding: { xs: '12px', md: '16px' },
-              borderRadius: '8px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              top: { xs: 10, md: 16 },
+              left: filtersCollapsed ? { xs: 10, md: 16 } : { xs: 10, md: 376 },
               zIndex: 1000,
-              minWidth: { xs: '140px', md: '180px' },
+              display: 'flex',
+              gap: 1.5,
+              alignItems: 'center',
+              px: 1.25,
+              py: 0.6,
+              backgroundColor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              borderRadius: '8px',
+              backdropFilter: 'blur(8px)',
+              transition: 'left 0.2s ease-in-out',
+            }}
+          >
+            <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textMid }}>
+              {t('chrome.view')} {fmtLat(viewState.latitude)} · {fmtLon(viewState.longitude)}
+            </Typography>
+            <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim }}>
+              {t('chrome.zoom')} {Number(viewState.zoom).toFixed(2)} · {t('chrome.pitch')} {Math.round(viewState.pitch || 0)}°
+            </Typography>
+          </Box>
+
+          {/* Columna derecha de paneles flotantes */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: { xs: 10, md: 16 },
+              right: { xs: 10, md: 16 },
+              zIndex: 1000,
+              width: { xs: 200, md: 240 },
               display: 'flex',
               flexDirection: 'column',
-              gap: 0.5,
-            }}>
-              {[
-                { label: 'Capa MARNA', checked: showMarnaLayer, onChange: setShowMarnaLayer },
-                { label: 'Satélite',   checked: isSatellite,    onChange: setIsSatellite },
-                { label: 'Espectros',  checked: showSpectra,    onChange: setShowSpectra },
-              ].map(({ label, checked, onChange }) => (
-                <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                  <Typography variant="caption" sx={{ fontSize: { xs: '10px', md: '12px' }, fontWeight: 'bold', color: '#1a202c' }}>
-                    {label}
-                  </Typography>
-                  <Switch
-                    checked={checked}
-                    onChange={(e) => onChange(e.target.checked)}
-                    size="small"
-                    sx={{
-                      '& .MuiSwitch-switchBase.Mui-checked': { color: '#0751A4' },
-                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#0751A4' },
-                    }}
-                  />
-                </Box>
-              ))}
-            </Box>
-          )}
-          
-          {/* Leyenda de colores */}
-          <Box sx={{
-            position: 'absolute',
-            top: { xs: 114, md: 136 },
-            right: { xs: 10, md: 20 },
-            background: 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(10px)',
-            padding: { xs: '12px', md: '16px' },
-            borderRadius: '8px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            minWidth: { xs: '140px', md: '180px' }
-          }}>
-            <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 1, color: '#1a202c', fontSize: { xs: '10px', md: '12px' } }}>
-              {selectedProject?.project_type === 'light_pollution' ? 'Iluminación (lux)' : 'Tasa de dosis (µSv/h)'}
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {(selectedProject?.project_type === 'light_pollution' ? LIGHT_POLLUTION_LEGEND : RADIATION_LEGEND).map((item, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 16, 
-                    background: item.gradient,
-                    borderRadius: '2px',
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }} />
-                  <Typography variant="caption" sx={{ fontSize: '11px' }}>{item.label}</Typography>
-                </Box>
-              ))}
-            </Box>
+              gap: 1.25,
+              pointerEvents: 'none',
+              maxHeight: 'calc(100% - 32px)',
+              overflowY: 'auto',
+            }}
+          >
+            {/* LAYERS */}
+            <FloatPanel title={t('layers.title')}>
+              {isRadiation && (
+                <ToggleRow
+                  label={t('layers.spectraMarkers')}
+                  sub={t('layers.spectraVisible', { count: spectra.length })}
+                  checked={showSpectra}
+                  onChange={setShowSpectra}
+                  right={showSpectra ? spectra.length : undefined}
+                />
+              )}
+              {isRadiation && (
+                <ToggleRow
+                  label={t('layers.stationsMarkers')}
+                  sub={t('layers.stationsVisible', { count: stations.length })}
+                  checked={showStations}
+                  onChange={setShowStations}
+                  right={showStations ? stations.length : undefined}
+                />
+              )}
+              {isRadiation && (
+                <ToggleRow
+                  label={t('layers.marnaLayer')}
+                  sub={t('layers.marnaSub')}
+                  checked={showMarnaLayer}
+                  onChange={setShowMarnaLayer}
+                />
+              )}
+              {selectedProject?.project_type === 'light_pollution' && (
+                <ToggleRow
+                  label={t('layers.sdgsatLayer')}
+                  sub={t('layers.sdgsatSub')}
+                  checked={showSdgsatLayer}
+                  onChange={setShowSdgsatLayer}
+                />
+              )}
+              <ToggleRow label={t('layers.satellite')} sub={t('layers.satelliteSub')} checked={isSatellite} onChange={setIsSatellite} />
+            </FloatPanel>
+
+            {/* DOSE RATE / Illumination (leyenda) */}
+            {(() => {
+              const isLP = selectedProject?.project_type === 'light_pollution';
+              const isCCT = isLP && lightPollutionColorMode === 'cct';
+              const legendItems = isLP
+                ? (isCCT ? LIGHT_POLLUTION_CCT_LEGEND : LIGHT_POLLUTION_LEGEND)
+                : RADIATION_LEGEND;
+              const title = isLP
+                ? (isCCT ? t('legend.cct') : t('legend.illumination'))
+                : t('legend.doseRate');
+              const right = isLP ? (isCCT ? 'K' : 'lux') : 'µSv/h';
+              return (
+                <FloatPanel title={title} right={right}>
+                  {isLP && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.75 }}>
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={lightPollutionColorMode}
+                        onChange={(_, v) => { if (v) setLightPollutionColorMode(v); }}
+                        sx={{
+                          '& .MuiToggleButton-root': {
+                            fontFamily: MONO,
+                            fontSize: 9,
+                            letterSpacing: '0.5px',
+                            color: T.textDim,
+                            border: `1px solid ${T.hairline}`,
+                            px: 1,
+                            py: 0.25,
+                            textTransform: 'uppercase',
+                            '&.Mui-selected': {
+                              color: T.text,
+                              backgroundColor: 'rgba(255,255,255,0.08)',
+                            },
+                          },
+                        }}
+                      >
+                        <ToggleButton value="illumination">{t('legend.colorMode.illumination')}</ToggleButton>
+                        <ToggleButton value="cct">{t('legend.colorMode.cct')}</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                    {legendItems.map((item, index) => (
+                      <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 20, height: 10, background: item.gradient, borderRadius: '2px', flexShrink: 0 }} />
+                        <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textMid }}>
+                          {item.qualifierKey ? `${item.label} (${t(item.qualifierKey)})` : item.label}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </FloatPanel>
+              );
+            })()}
+
+            {/* DOSE STATISTICS (radiación + H3) */}
+            {isUsingH3 && statistics && isRadiation && (
+              <FloatPanel title={t('stats.title')} right="µSv/h">
+                <StatRow label={t('stats.mean')} value={statistics.global_avg.toFixed(3)} />
+                <StatRow label={t('stats.max')} value={statistics.global_max.toFixed(3)} valueColor="#e0457b" />
+                <StatRow label={t('stats.min')} value={statistics.global_min.toFixed(3)} />
+                {statistics.global_std !== undefined && (
+                  <StatRow label={t('stats.stdDev')} value={statistics.global_std.toFixed(3)} />
+                )}
+                {totalMeasurements !== undefined && (
+                  <StatRow label={t('stats.samples')} value={formatNumber(totalMeasurements)} unit={t('stats.samplesUnit')} />
+                )}
+              </FloatPanel>
+            )}
           </Box>
-          
+
+          {/* Scale bar (abajo-centro) */}
+          {(() => {
+            const { px, label } = computeScale(viewState.latitude, viewState.zoom, formatNumber);
+            return (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 16,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  pointerEvents: 'none',
+                }}
+              >
+                <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textMid }}>{label}</Typography>
+                <Box
+                  sx={{
+                    width: px,
+                    height: 6,
+                    borderLeft: `1px solid ${T.textMid}`,
+                    borderRight: `1px solid ${T.textMid}`,
+                    borderBottom: `1px solid ${T.textMid}`,
+                  }}
+                />
+              </Box>
+            );
+          })()}
+
           {/* Render tooltip */}
           {renderTooltip()}
         </Paper>
@@ -918,10 +1324,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
           }}
         >
           <Typography variant="body2">
-            <strong>Token de Mapbox no configurado</strong>
+            <strong>{t('mapbox.notConfiguredTitle')}</strong>
           </Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Para mapas detallados, configura REACT_APP_MAPBOX_TOKEN
+            {t('mapbox.notConfiguredBody')}
           </Typography>
         </Alert>
       )}
@@ -931,6 +1337,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
         spectrumId={selectedSpectrumId}
         open={selectedSpectrumId !== null}
         onClose={() => setSelectedSpectrumId(null)}
+      />
+
+      {/* Diálogo con el histórico de la estación seleccionada */}
+      <StationDialog
+        stationId={selectedStationId}
+        open={selectedStationId !== null}
+        onClose={() => setSelectedStationId(null)}
       />
     </Box>
   );

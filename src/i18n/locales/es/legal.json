@@ -1,0 +1,178 @@
+{
+  "common": {
+    "kicker": "LEGAL",
+    "lastUpdated": "Última actualización · 10 feb 2026",
+    "backToHome": "Volver a la página principal",
+    "contactEmailLabel": "Email:",
+    "contactEmail": "frasanz@ibercivis.es",
+    "contactOrg": "OpenRed - Fundación Ibercivis"
+  },
+  "privacy": {
+    "title": "Política de privacidad",
+    "sections": {
+      "collection": {
+        "heading": "Información que recopilamos",
+        "body": "OpenRed recopila información que usted nos proporciona directamente cuando se registra en nuestra plataforma, incluyendo nombre, dirección de correo electrónico y datos de mediciones de radiación."
+      },
+      "usage": {
+        "heading": "Uso de la información",
+        "intro": "Utilizamos la información recopilada para:",
+        "items": [
+          "Proporcionar, mantener y mejorar nuestros servicios",
+          "Procesar y completar transacciones",
+          "Enviar información técnica y actualizaciones",
+          "Responder a sus comentarios y preguntas",
+          "Visualizar datos de mediciones de forma agregada"
+        ]
+      },
+      "sharing": {
+        "heading": "Compartir información",
+        "body": "Los datos de mediciones ambientales pueden ser compartidos de forma pública y anónima para fines de investigación científica y concienciación ciudadana. No compartimos información personal identificable con terceros sin su consentimiento explícito."
+      },
+      "security": {
+        "heading": "Seguridad de datos",
+        "body": "Implementamos medidas de seguridad técnicas y organizativas para proteger su información personal contra acceso no autorizado, alteración o destrucción."
+      },
+      "rights": {
+        "heading": "Sus derechos",
+        "body": "Usted tiene derecho a acceder, corregir o eliminar su información personal en cualquier momento. Puede ejercer estos derechos contactándonos en frasanz@ibercivis.es"
+      },
+      "cookies": {
+        "heading": "Cookies y tecnologías similares",
+        "body": "Utilizamos cookies y tecnologías similares para mejorar la experiencia del usuario, mantener sesiones activas y analizar el uso de nuestra plataforma."
+      },
+      "googleAuth": {
+        "heading": "Autenticación con Google",
+        "body": "Cuando utiliza la autenticación de Google, recibimos información básica de perfil (nombre y correo electrónico) según los permisos que usted otorgue. No tenemos acceso a su contraseña de Google."
+      },
+      "accountDeletion": {
+        "heading": "Eliminación de cuenta y datos",
+        "intro": "Como usuario de OpenRed (desarrollada por Fundación Ibercivis), puede solicitar la eliminación de su cuenta y de los datos asociados en cualquier momento. Para hacerlo, siga estos pasos:",
+        "steps": [
+          "Envíe un correo electrónico a frasanz@ibercivis.es desde la dirección de email registrada en OpenRed.",
+          "Indique en el asunto: \"Solicitud de eliminación de cuenta\".",
+          "Incluya en el cuerpo del mensaje su nombre de usuario o el email con el que se registró.",
+          "Recibirá una confirmación en un plazo máximo de 72 horas y la cuenta se eliminará en un plazo máximo de 30 días naturales desde la confirmación."
+        ],
+        "deletedHeading": "Datos que se eliminan",
+        "deletedIntro": "Una vez procesada la solicitud, se eliminarán de forma permanente los siguientes datos personales:",
+        "deletedItems": [
+          "Nombre, apellidos y dirección de correo electrónico.",
+          "Contraseña y credenciales de autenticación (incluido el vínculo con Google si lo había).",
+          "Información de perfil y preferencias de la cuenta.",
+          "Identificadores y tokens asociados a sus dispositivos."
+        ],
+        "retainedHeading": "Datos que se conservan",
+        "retainedIntro": "Por motivos científicos, legales y de seguridad, se conservan los siguientes datos tras la eliminación de la cuenta:",
+        "retainedItems": [
+          "Mediciones ambientales (radiación gamma y contaminación lumínica) en formato anonimizado y agregado, sin vinculación con el usuario, con fines de investigación científica y divulgación pública. Conservación indefinida.",
+          "Registros de acceso y logs de seguridad necesarios para detectar fraude y abuso. Conservación máxima de 12 meses.",
+          "Información mínima requerida para cumplir con obligaciones legales, fiscales o contables aplicables, durante el plazo exigido por la ley (hasta 6 años en el caso de obligaciones contables en España)."
+        ]
+      },
+      "dataDeletion": {
+        "heading": "Eliminación parcial de datos sin eliminar la cuenta",
+        "intro": "En OpenRed (desarrollada por Fundación Ibercivis) también puede solicitar la eliminación de parte de sus datos sin necesidad de cerrar su cuenta. Para hacerlo, siga estos pasos:",
+        "steps": [
+          "Envíe un correo electrónico a frasanz@ibercivis.es desde la dirección de email registrada en OpenRed.",
+          "Indique en el asunto: \"Solicitud de eliminación parcial de datos\".",
+          "Especifique en el cuerpo del mensaje qué datos desea eliminar (por ejemplo: mediciones de un rango de fechas concreto, mediciones de un dispositivo determinado, datos de ubicación, etc.).",
+          "Recibirá una confirmación en un plazo máximo de 72 horas y los datos solicitados se eliminarán en un plazo máximo de 30 días naturales desde la confirmación."
+        ],
+        "deletableHeading": "Datos que puede solicitar eliminar manteniendo la cuenta",
+        "deletableItems": [
+          "Mediciones individuales (radiación gamma o contaminación lumínica) asociadas a su cuenta o a un dispositivo concreto.",
+          "Datos de ubicación (coordenadas GPS) asociados a sus mediciones.",
+          "Metadatos de dispositivos (identificadores y tokens) que ya no utilice.",
+          "Información de perfil opcional que haya proporcionado (por ejemplo, nombre mostrado o preferencias)."
+        ],
+        "retainedHeading": "Datos que se conservan tras la eliminación parcial",
+        "retainedIntro": "Aunque solicite eliminar parte de sus datos, OpenRed conservará los siguientes datos para mantener el funcionamiento del servicio y cumplir con obligaciones legales:",
+        "retainedItems": [
+          "Datos básicos de la cuenta (email, credenciales) mientras la cuenta permanezca activa.",
+          "Versiones anonimizadas y agregadas de las mediciones eliminadas, sin vinculación con el usuario, para fines de investigación científica. Conservación indefinida.",
+          "Registros de acceso y logs de seguridad. Conservación máxima de 12 meses.",
+          "Información mínima requerida por obligaciones legales, fiscales o contables aplicables (hasta 6 años en España)."
+        ]
+      },
+      "changes": {
+        "heading": "Cambios a esta política",
+        "body": "Podemos actualizar esta política de privacidad ocasionalmente. Le notificaremos sobre cambios significativos publicando la nueva política en esta página."
+      },
+      "contact": {
+        "heading": "Contacto",
+        "body": "Si tiene preguntas sobre esta Política de Privacidad, contáctenos en:"
+      }
+    }
+  },
+  "terms": {
+    "title": "Términos de servicio",
+    "sections": {
+      "acceptance": {
+        "heading": "Aceptación de los términos",
+        "body": "Al acceder y utilizar OpenRed, usted acepta estar sujeto a estos Términos de Servicio y todas las leyes y regulaciones aplicables. Si no está de acuerdo con alguno de estos términos, no debe utilizar este servicio."
+      },
+      "description": {
+        "heading": "Descripción del servicio",
+        "body": "OpenRed es una plataforma de ciencia ciudadana para la medición y visualización de datos ambientales, incluyendo radiación gamma y contaminación lumínica. El servicio permite a los usuarios registrar, visualizar y compartir mediciones ambientales."
+      },
+      "registration": {
+        "heading": "Registro y cuenta de usuario",
+        "intro": "Para utilizar ciertas funciones del servicio, debe crear una cuenta. Usted es responsable de:",
+        "items": [
+          "Mantener la confidencialidad de su contraseña",
+          "Todas las actividades que ocurran bajo su cuenta",
+          "Proporcionar información precisa y actualizada",
+          "Notificarnos inmediatamente sobre cualquier uso no autorizado"
+        ]
+      },
+      "acceptableUse": {
+        "heading": "Uso aceptable",
+        "intro": "Al utilizar OpenRed, usted se compromete a:",
+        "items": [
+          "No subir datos falsos o engañosos",
+          "No intentar acceder a cuentas de otros usuarios",
+          "No utilizar el servicio para actividades ilegales",
+          "No interferir con el funcionamiento del servicio",
+          "Respetar los derechos de propiedad intelectual"
+        ]
+      },
+      "data": {
+        "heading": "Datos y mediciones",
+        "body": "Los datos de mediciones que usted suba a OpenRed pueden ser utilizados de forma agregada y anónima para investigación científica y visualización pública. Usted conserva los derechos sobre sus datos individuales, pero otorga a OpenRed una licencia no exclusiva para utilizarlos según se describe en nuestra Política de Privacidad."
+      },
+      "scientificContent": {
+        "heading": "Contenido científico",
+        "body": "La información proporcionada en OpenRed tiene fines educativos e informativos. No constituye asesoramiento profesional. Las mediciones ambientales deben ser interpretadas por profesionales cualificados."
+      },
+      "availability": {
+        "heading": "Disponibilidad del servicio",
+        "body": "Nos esforzamos por mantener OpenRed disponible 24/7, pero no garantizamos que el servicio esté libre de errores o interrupciones. Nos reservamos el derecho de modificar o discontinuar el servicio en cualquier momento."
+      },
+      "liability": {
+        "heading": "Limitación de responsabilidad",
+        "body": "OpenRed se proporciona \"tal cual\" sin garantías de ningún tipo. No somos responsables de daños directos, indirectos, incidentales o consecuentes derivados del uso o la imposibilidad de usar el servicio."
+      },
+      "intellectualProperty": {
+        "heading": "Propiedad intelectual",
+        "body": "El contenido, características y funcionalidad de OpenRed son propiedad de Fundación Ibercivis y están protegidos por derechos de autor y otras leyes de propiedad intelectual."
+      },
+      "modifications": {
+        "heading": "Modificaciones de los términos",
+        "body": "Nos reservamos el derecho de modificar estos términos en cualquier momento. Le notificaremos sobre cambios significativos. El uso continuado del servicio después de dichos cambios constituye su aceptación de los nuevos términos."
+      },
+      "termination": {
+        "heading": "Terminación",
+        "body": "Podemos terminar o suspender su cuenta inmediatamente si incumple estos Términos de Servicio. Usted puede terminar su cuenta en cualquier momento contactándonos."
+      },
+      "governingLaw": {
+        "heading": "Ley aplicable",
+        "body": "Estos términos se rigen por las leyes de España. Cualquier disputa se resolverá en los tribunales de Zaragoza, España."
+      },
+      "contact": {
+        "heading": "Contacto",
+        "body": "Si tiene preguntas sobre estos Términos de Servicio, contáctenos en:"
+      }
+    }
+  }
+}

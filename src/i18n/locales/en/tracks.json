@@ -1,0 +1,98 @@
+{
+  "header": {
+    "title": "My Tracks",
+    "subtitle": "Manage your routes"
+  },
+  "search": {
+    "placeholder": "find tracks…"
+  },
+  "sort": {
+    "recent": "Recent",
+    "oldest": "Oldest",
+    "longest": "Longest",
+    "samples": "Most samples"
+  },
+  "summary": "{{count}} tracks · {{km}} km total",
+  "empty": {
+    "title": "No tracks yet",
+    "subtitle": "Create your first track by uploading an RCTRK file"
+  },
+  "stats": {
+    "km": "{{value}} km",
+    "points": "{{value}} pts",
+    "max": "max {{value}}",
+    "avg": "avg {{value}} µSv/h"
+  },
+  "map": {
+    "selectPrompt": "Select a track to view its route",
+    "pointsLoaded": "{{count}} points loaded"
+  },
+  "tooltip": {
+    "title": "Individual Measurement",
+    "lat": "Lat: {{value}}",
+    "lng": "Lng: {{value}}",
+    "altitude": "{{value}}m",
+    "weatherTitle": "Weather Conditions",
+    "humidity": "Humidity: {{value}}%",
+    "pressure": "Pressure: {{value}} hPa",
+    "wind": "Wind: {{speed}} m/s ({{direction}}°)",
+    "cloudCover": "Cloud cover: {{value}}%"
+  },
+  "dialog": {
+    "editTitle": "Edit Track",
+    "newTitle": "New Track",
+    "selectFile": "Select RCTRK file",
+    "fileSize": "Size: {{value}} KB",
+    "create": "Create",
+    "newButton": "New track",
+    "fileHint": "Only .rctrk files exported from the RadiaCode app (Android or iOS), up to 10 MB.",
+    "duplicateWarning": "Uploading the same file twice creates two tracks; there is no deduplication.",
+    "upload": "Upload"
+  },
+  "fields": {
+    "name": "Track name",
+    "description": "Description",
+    "mission": "Mission (optional)",
+    "campaign": "Campaign (optional)",
+    "campaignLoading": "Loading campaigns...",
+    "none": "None",
+    "campaignPassword": "Campaign password",
+    "campaignPasswordHelper": "This campaign requires a password",
+    "missionRequired": "Mission",
+    "campaignRequired": "Campaign",
+    "device": "Device",
+    "deviceLoading": "Loading devices...",
+    "noDevices": "You have no registered devices. Create one on the devices page before uploading a track.",
+    "selectMissionFirst": "Select a mission first"
+  },
+  "delete": {
+    "title": "Confirm Deletion",
+    "warning": "Warning! You will delete the track and all associated data.",
+    "confirmText": "Are you sure you want to delete \"<strong>{{name}}</strong>\"?"
+  },
+  "errors": {
+    "loadTracks": "Error loading tracks",
+    "loadMeasurements": "Error loading track measurements",
+    "invalidFile": "Only files with the .rctrk extension are allowed",
+    "selectFile": "Please select an RCTRK file",
+    "selectProject": "Please select a project first",
+    "saveTrack": "Error saving the track",
+    "deleteTrack": "Error deleting the track",
+    "selectDevice": "Select a device",
+    "selectMission": "Select a mission",
+    "selectCampaign": "Select a campaign",
+    "fileTooLarge": "The file exceeds the 10 MB limit",
+    "unauthorized": "Your session has expired. Log in again to upload tracks.",
+    "wrongPassword": "The campaign password is incorrect",
+    "rateLimited": "You have exceeded the limit of 30 uploads per hour. Try again in {{minutes}} min.",
+    "rateLimitedNoRetry": "You have exceeded the limit of 30 uploads per hour. Try again later.",
+    "processingFailed": "Track processing failed: {{message}}",
+    "processingFailedNoMessage": "Track processing failed",
+    "processingTimeout": "The track was uploaded but is still being processed. Reload the list in a few seconds."
+  },
+  "upload": {
+    "uploading": "Uploading file...",
+    "processing": "File received. Processing on the server (usually takes a few seconds)...",
+    "success": "Track \"{{name}}\" processed: {{points}} points"
+  }
+}

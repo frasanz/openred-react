@@ -1,0 +1,117 @@
+{
+  "loading": "Cargando...",
+  "header": {
+    "title": "Mis dispositivos y estaciones"
+  },
+  "sections": {
+    "devices": "Dispositivos",
+    "devicesHint": "Haz un track con la aplicación móvil y el dispositivo quedará asociado a tu cuenta.",
+    "stations": "Estaciones estáticas",
+    "stationsHint": "Asocia un dispositivo a una ubicación fija y un proyecto de radiación.",
+    "addDevice": "Agregar dispositivo",
+    "addStation": "Agregar estación"
+  },
+  "empty": {
+    "devices": "No tienes dispositivos registrados",
+    "addFirstDevice": "Agregar primer dispositivo",
+    "stations": "No tienes estaciones",
+    "noDevicesForStation": "Primero crea un dispositivo para poder asociarlo a una estación."
+  },
+  "card": {
+    "serial": "Serie: {{serial}}",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "tokenPresent": "Token configurado",
+    "tokenAbsent": "Sin token",
+    "tokenCreatedAt": "Token creado el {{date}}",
+    "calibration": "Calibración: {{date}}",
+    "lastMeasurement": "Última medida: {{date}}",
+    "neverMeasured": "Sin medidas aún"
+  },
+  "actions": {
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "regenerate": "Regenerar token"
+  },
+  "deviceDialog": {
+    "addTitle": "Agregar dispositivo",
+    "editTitle": "Editar dispositivo",
+    "modelLabel": "Modelo",
+    "modelOption": "{{name}} - {{manufacturer}}",
+    "serialLabel": "Número de serie",
+    "calibrationLabel": "Fecha de calibración",
+    "activeLabel": "Dispositivo activo",
+    "cancel": "Cancelar",
+    "create": "Crear",
+    "update": "Actualizar"
+  },
+  "tokenDialog": {
+    "title": "Guarda tu ingest token",
+    "warning": "Este token solo se muestra una vez. Cópialo ahora y configúralo en el firmware del dispositivo (cabecera X-Device-Token). No podrás recuperarlo después; si lo pierdes tendrás que regenerarlo.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "done": "Hecho, ya lo he guardado"
+  },
+  "regenerateConfirm": "¿Regenerar el token de este dispositivo? El token anterior dejará de funcionar y deberás reconfigurar el firmware.",
+  "exampleDialog": {
+    "title": "Ejemplo: subir una medida",
+    "note": "No necesitas esto si subes medidas con la aplicación móvil: la app se encarga del envío por ti. Esta API de ingesta directa está pensada solo para hardware personalizado que envía sus propias medidas usando su token. Por ahora solo está disponible para proyectos de radiación gamma.",
+    "intro": "El dispositivo envía las medidas con su token en la cabecera X-Device-Token. Ejemplo de petición:",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "close": "Cerrar"
+  },
+  "stationDialog": {
+    "addTitle": "Agregar estación",
+    "editTitle": "Editar estación",
+    "nameLabel": "Nombre",
+    "deviceLabel": "Dispositivo",
+    "projectLabel": "Proyecto de radiación",
+    "mapHint": "Haz click en el mapa para fijar la ubicación de la estación.",
+    "noLocation": "Sin ubicación seleccionada",
+    "latitudeLabel": "Latitud",
+    "longitudeLabel": "Longitud",
+    "altitudeLabel": "Altitud (m)",
+    "intervalLabel": "Intervalo esperado (s)",
+    "cancel": "Cancelar",
+    "create": "Crear",
+    "update": "Actualizar"
+  },
+  "stationCard": {
+    "device": "Dispositivo: {{serial}}",
+    "project": "Proyecto: {{name}}",
+    "lastMeasurement": "Última medida: {{date}}",
+    "neverMeasured": "Sin medidas aún",
+    "location": "{{lat}}, {{lon}}"
+  },
+  "stationStatus": {
+    "online": "En línea",
+    "offline": "Sin conexión",
+    "unknown": "Desconocido"
+  },
+  "confirm": {
+    "deleteDevice": "¿Estás seguro de que quieres eliminar este dispositivo?",
+    "deleteStation": "¿Estás seguro de que quieres eliminar esta estación?"
+  },
+  "errors": {
+    "load": "Error al cargar los datos",
+    "createDevice": "Error al crear el dispositivo",
+    "updateDevice": "Error al actualizar el dispositivo",
+    "deleteDevice": "Error al eliminar el dispositivo",
+    "regenerate": "Error al regenerar el token",
+    "createStation": "Error al crear la estación",
+    "updateStation": "Error al actualizar la estación",
+    "deleteStation": "Error al eliminar la estación"
+  },
+  "validation": {
+    "modelRequired": "Selecciona un modelo de dispositivo",
+    "serialRequired": "El número de serie es requerido",
+    "nameRequired": "El nombre es requerido",
+    "deviceRequired": "Selecciona un dispositivo",
+    "projectRequired": "Selecciona un proyecto de radiación",
+    "latitudeRequired": "La latitud es requerida",
+    "longitudeRequired": "La longitud es requerida",
+    "latitudeRange": "La latitud debe estar entre -90 y 90",
+    "longitudeRange": "La longitud debe estar entre -180 y 180"
+  }
+}

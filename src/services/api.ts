@@ -3,9 +3,16 @@ import {
   User,
   DeviceModel,
   Device,
+  IngestTokenResponse,
+  Station,
+  StationFormData,
+  PublicStation,
+  StationReadingsResponse,
   Mission,
   Campaign,
   Track,
+  TrackUploadData,
+  TrackUploadResponse,
   Measurement,
   AuthTokens,
   LoginCredentials,
@@ -22,6 +29,21 @@ import {
 } from '../types/statistics';
 import { mockMeasurements, mockCampaigns, mockMissions } from './mockData';
 import { MeasurementServiceFactory, MeasurementType } from './measurements';
+
+// Estados finales del procesado de un track subido.
+export const isTrackProcessingFinished = (status?: string): boolean =>
+  status === 'completed' || status === 'failed' || status === 'error';
+
+export class TrackProcessingTimeoutError extends Error {
+  trackId: number;
+  lastTrack: Track;
+  constructor(trackId: number, lastTrack: Track) {
+    super(`Track ${trackId} is still processing`);
+    this.name = 'TrackProcessingTimeoutError';
+    this.trackId = trackId;
+    this.lastTrack = lastTrack;
+  }
+}
 
 class ApiService {
   private api: AxiosInstance;
@@ -238,17 +260,25 @@ class ApiService {
 
   // Device methods
   async getDeviceModels(): Promise<DeviceModel[]> {
-    const response: AxiosResponse<ApiResponse<DeviceModel>> = await this.api.get('/api/device-models/');
+    const response: AxiosResponse<ApiResponse<DeviceModel> | DeviceModel[]> = await this.api.get('/api/device-models/');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
     return response.data.results || [];
   }
 
-  async getDevices(): Promise<Device[]> {
-    const response: AxiosResponse<ApiResponse<Device>> = await this.api.get('/api/devices/');
+  // Mis dispositivos. No trae el ingest_token, solo has_ingest_token e ingest_token_created_at.
+  async getMyDevices(): Promise<Device[]> {
+    const response: AxiosResponse<ApiResponse<Device> | Device[]> = await this.api.get('/api/devices/mine/');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
     return response.data.results || [];
   }
 
-  async createDevice(deviceData: DeviceFormData): Promise<Device> {
-    const response: AxiosResponse<Device> = await this.api.post('/api/devices/', deviceData);
+  // La respuesta incluye el ingest_token en claro: SOLO se devuelve aquí, esta única vez.
+  async createDevice(deviceData: DeviceFormData): Promise<Device & IngestTokenResponse> {
+    const response: AxiosResponse<Device & IngestTokenResponse> = await this.api.post('/api/devices/', deviceData);
     return response.data;
   }
 
@@ -259,6 +289,52 @@ class ApiService {
 
   async deleteDevice(id: number): Promise<void> {
     await this.api.delete(`/api/devices/${id}/`);
+  }
+
+  // Rota el ingest_token (perdido / reflasheo). De nuevo, el token se devuelve una sola vez.
+  async regenerateDeviceToken(id: number): Promise<IngestTokenResponse> {
+    const response: AxiosResponse<IngestTokenResponse> = await this.api.post(`/api/devices/${id}/regenerate_token/`);
+    return response.data;
+  }
+
+  // Station methods
+  async getMyStations(): Promise<Station[]> {
+    const response: AxiosResponse<ApiResponse<Station> | Station[]> = await this.api.get('/api/stations/mine/');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data.results || [];
+  }
+
+  async createStation(data: StationFormData): Promise<Station> {
+    const response: AxiosResponse<Station> = await this.api.post('/api/stations/', data);
+    return response.data;
+  }
+
+  async updateStation(id: number, data: Partial<StationFormData>): Promise<Station> {
+    const response: AxiosResponse<Station> = await this.api.patch(`/api/stations/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteStation(id: number): Promise<void> {
+    await this.api.delete(`/api/stations/${id}/`);
+  }
+
+  // Estaciones de un proyecto (público, sin autenticación). Array plano ordenado por
+  // nombre, sin paginación. Por defecto solo las activas.
+  async getStationsByProject(params: { project?: number; include_inactive?: boolean }): Promise<PublicStation[]> {
+    const response = await this.api.get('/api/stations/by-project/', { params });
+    return Array.isArray(response.data) ? response.data : (response.data?.results ?? []);
+  }
+
+  // Detalle de una estación (público, sin autenticación): serie temporal agregada.
+  // range: 1d/1w/1m/1y/4y (o cualquier N+unidad h/d/w/m/y). interval: auto por defecto.
+  async getStationReadings(
+    id: number,
+    params?: { range?: string; interval?: string; start?: string; end?: string },
+  ): Promise<StationReadingsResponse> {
+    const response = await this.api.get(`/api/stations/${id}/readings/`, { params });
+    return response.data;
   }
 
   // Mission methods
@@ -323,13 +399,63 @@ class ApiService {
     return response.data;
   }
 
-  async createTrack(formData: FormData): Promise<Track> {
-    const response: AxiosResponse<Track> = await this.api.post('/api/tracks/upload/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  // Sube un .rctrk a POST /api/tracks/upload/. El backend responde 202 y procesa en segundo plano.
+  // Errores del backend: {"error": "..."} con 400 (campo, campaña de otra misión, extensión, contenido,
+  // contraseña requerida), 403 (contraseña incorrecta), 413 (> 10 MiB), 429 (Retry-After en segundos).
+  async uploadTrack(data: TrackUploadData, signal?: AbortSignal): Promise<TrackUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    formData.append('device', String(data.device));
+    formData.append('mission', String(data.mission));
+    formData.append('campaign', String(data.campaign));
+    if (data.campaign_password) {
+      formData.append('campaign_password', data.campaign_password);
+    }
+    if (data.project != null) {
+      formData.append('project', String(data.project));
+    }
+    // Axios elimina el Content-Type por defecto cuando el body es FormData y deja que el navegador
+    // ponga el boundary del multipart.
+    const response: AxiosResponse<TrackUploadResponse> = await this.api.post('/api/tracks/upload/', formData, {
+      signal,
     });
     return response.data;
+  }
+
+  // Sondea GET /api/tracks/{id}/ hasta que el procesado termine (completed | failed | error).
+  // Lanza TrackProcessingTimeoutError si se agota el tiempo; el track sigue procesándose en el backend.
+  async waitForTrackProcessing(
+    trackId: number,
+    options: { intervalMs?: number; timeoutMs?: number; signal?: AbortSignal } = {}
+  ): Promise<Track> {
+    const { intervalMs = 2500, timeoutMs = 60000, signal } = options;
+    const deadline = Date.now() + timeoutMs;
+    const throwIfAborted = () => {
+      if (signal?.aborted) {
+        throw new DOMException('Track processing polling aborted', 'AbortError');
+      }
+    };
+    while (true) {
+      throwIfAborted();
+      const track = await this.getTrack(trackId);
+      if (isTrackProcessingFinished(track.status)) {
+        return track;
+      }
+      if (Date.now() + intervalMs > deadline) {
+        throw new TrackProcessingTimeoutError(trackId, track);
+      }
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve();
+        }, intervalMs);
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(new DOMException('Track processing polling aborted', 'AbortError'));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+      });
+    }
   }
 
   async updateTrack(id: number, data: Partial<Track>): Promise<Track> {

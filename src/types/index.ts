@@ -23,13 +23,130 @@ export interface DeviceModel {
 
 export interface Device {
   id: number;
-  device_model: DeviceModel;
+  device_model?: DeviceModel | null;
   serial_number: string;
-  hash: string;
-  owner?: User;
+  owner?: number;
   purchase_date?: string;
   calibration_date?: string;
   is_active: boolean;
+  has_ingest_token: boolean;
+  ingest_token_created_at?: string | null;
+  last_measurement_at?: string | null;
+  // Solo presente en la respuesta de creación / rotación (en claro, una única vez).
+  ingest_token?: string;
+}
+
+// Respuesta de POST /api/devices/ y POST /api/devices/{id}/regenerate_token/.
+// El ingest_token solo se devuelve en estas respuestas y no puede recuperarse después.
+export interface IngestTokenResponse {
+  ingest_token: string;
+  ingest_token_created_at: string;
+}
+
+export interface Station {
+  id: number;
+  name: string;
+  device: number; // Device ID (relación 1:1)
+  project: number; // Project ID (debe ser de radiación)
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+  expected_interval_seconds?: number;
+  // Campos read-only que pone el servidor:
+  user?: number;
+  status?: string;
+  last_measurement_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Estación devuelta por GET /api/stations/by-project/ (público, sin autenticación).
+// Endpoint distinto de /api/stations/mine/: trae todas las estaciones de un proyecto
+// (de cualquier usuario), con datos agregados de radiación en lugar de `device`/`user`.
+export interface PublicStation {
+  id: number;
+  name: string;
+  project: number;
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+  status?: string;
+  is_active: boolean;
+  last_measurement_at?: string | null;
+  expected_interval_seconds?: number;
+  last_dose_rate?: number | null;
+  last_dose_rate_at?: string | null;
+  avg_dose_rate_24h?: number | null;
+  measurements_24h?: number;
+}
+
+// GET /api/stations/{id}/readings/ (público, sin autenticación): serie temporal agregada
+// en buckets, lista para pintar. Cada punto de `series` trae avg/min/max de dose_rate y cpm;
+// `weather` es una serie aparte (resolución horaria o más gruesa) que no está alineada
+// punto a punto con `series` a propósito.
+export interface StationReadingsMetricPoint {
+  avg: number;
+  min: number;
+  max: number;
+}
+
+export interface StationReadingsSeriesPoint {
+  t: string;
+  count: number;
+  dose_rate?: StationReadingsMetricPoint;
+  cpm?: StationReadingsMetricPoint;
+}
+
+export interface StationReadingsWeatherPoint {
+  t: string;
+  hours: number;
+  temperature?: number | null;
+  humidity?: number | null;
+  pressure?: number | null;
+  wind_speed?: number | null;
+  wind_direction?: number | null;
+  cloud_cover?: number | null;
+  rain_sum?: number | null;
+}
+
+export interface StationReadingsResponse {
+  station: {
+    id: number;
+    name: string;
+    project: number;
+    latitude: number;
+    longitude: number;
+    status?: string;
+    expected_interval_seconds?: number;
+  };
+  window: {
+    start: string;
+    end: string;
+    interval: string;
+    points: number;
+  };
+  units: Record<string, string>;
+  stats: {
+    count: number;
+    dose_rate_avg?: number | null;
+    dose_rate_min?: number | null;
+    dose_rate_max?: number | null;
+    cpm_avg?: number | null;
+    cpm_min?: number | null;
+    cpm_max?: number | null;
+  };
+  series: StationReadingsSeriesPoint[];
+  weather: StationReadingsWeatherPoint[];
+}
+
+export interface StationFormData {
+  name: string;
+  device: number;
+  project: number;
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+  expected_interval_seconds?: number;
 }
 
 export interface Mission {
@@ -90,6 +207,25 @@ export interface Track {
   is_public?: boolean;
   gpx_file?: string;
   geojson_data?: any;
+}
+
+// Datos para POST /api/tracks/upload/ (multipart/form-data)
+export interface TrackUploadData {
+  file: File; // .rctrk, export de RadiaCode Android o iOS
+  device: number;
+  mission: number;
+  campaign: number; // debe pertenecer a la misión
+  campaign_password?: string; // solo si la campaña tiene has_password
+  project?: number; // opcional; si se envía debe coincidir con el de la misión
+}
+
+// Respuesta 202 de POST /api/tracks/upload/. El 202 no significa procesado:
+// hay que sondear GET /api/tracks/{track_id}/ hasta status completed | failed.
+export interface TrackUploadResponse {
+  track_id: number;
+  job_id: string;
+  status: string; // pending | processing | completed | failed
+  message: string;
 }
 
 // Weather cache data structure
@@ -331,5 +467,6 @@ export interface MeasurementPoint {
 export interface DeviceFormData {
   device_model: number;
   serial_number: string;
-  hash?: string;
+  calibration_date?: string;
+  is_active?: boolean;
 }

@@ -1,0 +1,50 @@
+{
+  "kicker": "HARDWARE",
+  "title": "ESP32",
+  "intro": "This ESP32 acts as a gateway: it reads your RadiaCode detector's data over Bluetooth (BLE) and sends it to OpenRed over WiFi. It's not a sensor on its own, but the bridge between your RadiaCode and the internet.",
+  "betaBanner": {
+    "title": "Very much beta",
+    "body": "This firmware is WiFi-only: even if your Heltec board has a LoRa radio, this build does not support LoRa/TTN yet. It works with the Heltec WiFi Kit 32 V2 (original ESP32) and V3 (ESP32-S3); the installer auto-detects which board is connected. V1 isn't supported yet."
+  },
+  "browserBanner": {
+    "title": "Chrome, Edge or Opera desktop only",
+    "body": "Browser installation uses Web Serial, an API not implemented by Safari or Firefox, and barely supported on mobile. If you can't use it, download the 4 files below and flash them with esptool from your computer."
+  },
+  "install": {
+    "heading": "Install",
+    "description": "Connect your board (ESP32 or ESP32-S3) to your computer via USB and click install. The browser will ask you to pick the serial port; the installer auto-detects which board it is and writes the right bootloader, partition table and application in one go.",
+    "button": "Install firmware",
+    "unsupported": "Your browser does not support Web Serial installation. Use Google Chrome, Microsoft Edge or Opera on desktop, or download the files and flash them with esptool.",
+    "notAllowed": "Browser installation only works on HTTPS sites (or localhost).",
+    "manualFlash": "If you'd rather flash by hand with esptool, pick the files for your board and their flash address (esptool.py write_flash <offset> <file>). Offsets aren't interchangeable between boards:",
+    "offset": "{{offset}}",
+    "boards": {
+      "esp32": "Heltec WiFi Kit 32 V2 (ESP32)",
+      "esp32s3": "Heltec WiFi Kit 32 V3 (ESP32-S3)"
+    }
+  },
+  "prereqs": {
+    "heading": "Before flashing, have these 3 things ready",
+    "intro": "Without them you'll get stuck halfway through the ESP32's config portal. Prepare them before touching the install button:",
+    "item1Label": "1. A station with its device",
+    "item1Desc": "In OpenRed, every RadiaCode is a \"device\", and it's not created by hand: it gets registered automatically the first time you use your RadiaCode with the mobile app, under your account. Then create a station linked to that device, with its location, in",
+    "item1Link": "My devices",
+    "item1Suffix": "Creating the station is not optional: without it nothing shows up on the map, even if the device is already sending data.",
+    "item2Label": "2. The device's token",
+    "item2Desc": "On that same page, click \"Regenerate token\" on your device to get its ingest token (X-Device-Token) and save it — it's shown only once. Note: regenerating it invalidates any previous token that device was using.",
+    "item3Label": "3. Your WiFi SSID and password",
+    "item3Desc": "The ESP32 only supports 2.4 GHz networks."
+  },
+  "manual": {
+    "heading": "Quick guide",
+    "intro": "With the 3 things above ready:",
+    "step1Label": "1. Flash the firmware",
+    "step1Desc": "Use the install button above (or esptool by hand) to flash the ESP32.",
+    "step2Label": "2. Connect to the config portal",
+    "step2Desc": "On first boot (or after a reset), the ESP32 opens an open WiFi network called \"OPENRED-ESP32-Config\". Connect to it from your phone or computer and go to http://192.168.4.1.",
+    "step3Label": "3. Fill in the portal",
+    "step3Desc": "Pick your WiFi network from the dropdown (or type it), its password, and paste the token from step 2 above. The upload URL is already filled in by default. Save: the ESP32 will restart and try to connect to your WiFi and, over Bluetooth, to your RadiaCode detector.",
+    "reconfigure": "To reconfigure WiFi or the token later: briefly press the PRG button until you reach screen 3 (\"Open Portal?\"), then hold it for 3 seconds to clear the configuration and reopen the portal."
+  },
+  "backToHome": "Back to home"
+}

@@ -1,0 +1,50 @@
+{
+  "kicker": "HARDWARE",
+  "title": "ESP32",
+  "intro": "Este ESP32 actúa como pasarela (gateway): lee por Bluetooth (BLE) los datos de tu detector RadiaCode y los envía por WiFi a OpenRed. No es un sensor en sí mismo, sino el puente entre tu RadiaCode e Internet.",
+  "betaBanner": {
+    "title": "Muy en beta",
+    "body": "Este firmware solo usa WiFi: aunque tu placa Heltec tenga radio LoRa, esta versión todavía no soporta LoRa/TTN. Funciona con Heltec WiFi Kit 32 V2 (ESP32 original) y V3 (ESP32-S3); el instalador detecta solo qué placa tienes conectada. La V1 no está soportada todavía."
+  },
+  "browserBanner": {
+    "title": "Solo Chrome, Edge u Opera de escritorio",
+    "body": "La instalación por navegador usa Web Serial, una API que Safari y Firefox no implementan, y que en móvil apenas tiene soporte. Si no puedes usarla, descarga los 4 archivos de abajo y flashéalos con esptool desde el ordenador."
+  },
+  "install": {
+    "heading": "Instalar",
+    "description": "Conecta la placa (ESP32 o ESP32-S3) al ordenador por USB y pulsa instalar. El navegador te pedirá elegir el puerto serie; el instalador detecta solo qué placa es y graba el bootloader, la tabla de particiones y la aplicación correctos de una vez.",
+    "button": "Instalar firmware",
+    "unsupported": "Tu navegador no soporta la instalación por Web Serial. Usa Google Chrome, Microsoft Edge u Opera en escritorio, o descarga los archivos y flashéalos con esptool.",
+    "notAllowed": "La instalación por navegador solo funciona en sitios HTTPS (o localhost).",
+    "manualFlash": "Si prefieres flashear a mano con esptool, elige los archivos de tu placa y su dirección en flash (esptool.py write_flash <offset> <archivo>). Los offsets no son intercambiables entre placas:",
+    "offset": "{{offset}}",
+    "boards": {
+      "esp32": "Heltec WiFi Kit 32 V2 (ESP32)",
+      "esp32s3": "Heltec WiFi Kit 32 V3 (ESP32-S3)"
+    }
+  },
+  "prereqs": {
+    "heading": "Antes de flashear, ten estos 3 datos a mano",
+    "intro": "Sin ellos te vas a quedar a medias en el portal de configuración del ESP32. Prepáralos antes de tocar el botón de instalar:",
+    "item1Label": "1. Una estación con su dispositivo",
+    "item1Desc": "En OpenRed, cada RadiaCode es un \"dispositivo\", y no se crea a mano: se registra solo la primera vez que usas tu RadiaCode con la app móvil, en tu cuenta. Después crea una estación asociada a ese dispositivo, con su ubicación, en",
+    "item1Link": "Mis dispositivos",
+    "item1Suffix": "Crear la estación no es opcional: sin ella no aparece nada en el mapa, aunque el dispositivo ya esté enviando datos.",
+    "item2Label": "2. El token del dispositivo",
+    "item2Desc": "En esa misma página, pulsa \"Regenerar token\" sobre tu dispositivo para conseguir su ingest token (X-Device-Token) y guárdalo — se muestra una sola vez. Ojo: regenerarlo invalida cualquier token anterior que ese dispositivo estuviera usando.",
+    "item3Label": "3. El SSID y la contraseña de tu WiFi",
+    "item3Desc": "El ESP32 solo soporta redes de 2,4 GHz."
+  },
+  "manual": {
+    "heading": "Guía rápida",
+    "intro": "Con los 3 datos anteriores ya preparados:",
+    "step1Label": "1. Flashea el firmware",
+    "step1Desc": "Usa el botón de instalar de arriba (o esptool a mano) para grabar el ESP32.",
+    "step2Label": "2. Conéctate al portal de configuración",
+    "step2Desc": "Al primer arranque (o tras un reset), el ESP32 abre una red WiFi abierta llamada \"OPENRED-ESP32-Config\". Conéctate a ella desde el móvil u ordenador y entra a http://192.168.4.1.",
+    "step3Label": "3. Rellena el portal",
+    "step3Desc": "Elige tu red WiFi del desplegable (o escríbela), su contraseña, y pega el token del paso 2 de arriba. La URL de envío ya viene rellenada por defecto. Guarda: el ESP32 se reiniciará e intentará conectar tanto a tu WiFi como, por Bluetooth, a tu detector RadiaCode.",
+    "reconfigure": "Para reconfigurar el WiFi o el token más adelante: pulsa brevemente el botón PRG hasta llegar a la pantalla 3 (\"¿Abrir Portal?\"), y mantenlo pulsado 3 segundos para borrar la configuración y volver a abrir el portal."
+  },
+  "backToHome": "Volver al inicio"
+}

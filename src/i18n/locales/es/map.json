@@ -1,0 +1,111 @@
+{
+  "loadingMeasurements": "Cargando mediciones...",
+  "tooltip": {
+    "measurement": "Medición",
+    "cluster": "Cluster de mediciones",
+    "dataGrid": "Cuadrícula de datos",
+    "spectrum": "Espectro #{{id}}",
+    "cct": "CCT",
+    "brightness": "Brillo",
+    "countRate": "Tasa de cuentas",
+    "speed": "Velocidad",
+    "latitude": "Latitud",
+    "longitude": "Longitud",
+    "altitude": "Altitud",
+    "date": "Fecha",
+    "weather": "Meteorología",
+    "temperature": "Temperatura",
+    "humidity": "Humedad",
+    "pressure": "Presión",
+    "wind": "Viento",
+    "cloudCover": "Nubosidad",
+    "measurements": "Mediciones",
+    "min": "Mínimo",
+    "max": "Máximo",
+    "stdDev": "Desv. estándar",
+    "cctMean": "CCT media",
+    "cctMin": "CCT mín.",
+    "cctMax": "CCT máx.",
+    "luxMean": "lux (media)",
+    "doseMean": "µSv/h (media)",
+    "zoomHint": "Haz zoom (≥16) para ver mediciones individuales",
+    "totalValue": "Valor total",
+    "avgValue": "Valor promedio",
+    "spectrumClickHint": "Haz clic para ver el espectro",
+    "status": "Estado",
+    "lastMeasurement": "Última medida",
+    "neverMeasured": "Sin medidas aún",
+    "measurements24h": "Medidas (24h)",
+    "stationClickHint": "Haz clic para ver el histórico"
+  },
+  "stationStatus": {
+    "online": "En línea",
+    "offline": "Sin conexión",
+    "unknown": "Desconocido"
+  },
+  "layers": {
+    "title": "Layers",
+    "spectraMarkers": "Spectra markers",
+    "spectraVisible": "{{count}} visible",
+    "stationsMarkers": "Estaciones",
+    "stationsVisible": "{{count}} visibles",
+    "marnaLayer": "MARNA layer",
+    "marnaSub": "Natural background",
+    "sdgsatLayer": "Capa SDGSAT",
+    "sdgsatSub": "Satélite nocturno (Lost at Night)",
+    "satellite": "Satellite",
+    "satelliteSub": "Mapbox satellite"
+  },
+  "legend": {
+    "illumination": "Illumination",
+    "doseRate": "Dose Rate",
+    "cct": "Temperatura de color",
+    "colorMode": {
+      "illumination": "Iluminación",
+      "cct": "Temperatura"
+    },
+    "luxQuality": {
+      "excellent": "Excelente",
+      "good": "Bueno",
+      "acceptable": "Aceptable",
+      "moderate": "Moderado",
+      "high": "Alto",
+      "veryHigh": "Muy Alto"
+    },
+    "cctQuality": {
+      "veryWarm": "Muy cálido",
+      "warm": "Cálido",
+      "neutral": "Neutro",
+      "cool": "Frío",
+      "veryCool": "Muy frío"
+    }
+  },
+  "stats": {
+    "title": "Dose Statistics",
+    "mean": "Mean",
+    "max": "Max",
+    "min": "Min",
+    "stdDev": "Std dev",
+    "samples": "Samples",
+    "samplesUnit": "pts"
+  },
+  "chrome": {
+    "view": "VIEW",
+    "zoom": "Z",
+    "pitch": "PITCH"
+  },
+  "mapbox": {
+    "notConfiguredTitle": "Token de Mapbox no configurado",
+    "notConfiguredBody": "Para mapas detallados, configura REACT_APP_MAPBOX_TOKEN"
+  },
+  "loading": {
+    "title": "Cargando mediciones en paralelo",
+    "progress": "{{loaded}} de {{total}} mediciones",
+    "minutesLeft": "~{{minutes}}m {{seconds}}s restantes",
+    "secondsLeft": "~{{seconds}}s restantes",
+    "finishing": "Finalizando...",
+    "completed": "¡Completado!",
+    "rate": "{{rate}} mediciones/s",
+    "starting": "Iniciando..."
+  }
+}

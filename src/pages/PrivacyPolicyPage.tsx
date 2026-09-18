@@ -1,112 +1,107 @@
 import React from 'react';
-import { Container, Typography, Box, Paper } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { ContentPage } from '../components/ui/ContentPage';
 
 const PrivacyPolicyPage: React.FC = () => {
+  const { t } = useTranslation('legal');
+  const usageItems = t('privacy.sections.usage.items', { returnObjects: true }) as string[];
+  const accountDeletionSteps = t('privacy.sections.accountDeletion.steps', { returnObjects: true }) as string[];
+  const accountDeletionDeletedItems = t('privacy.sections.accountDeletion.deletedItems', { returnObjects: true }) as string[];
+  const accountDeletionRetainedItems = t('privacy.sections.accountDeletion.retainedItems', { returnObjects: true }) as string[];
+  const dataDeletionSteps = t('privacy.sections.dataDeletion.steps', { returnObjects: true }) as string[];
+  const dataDeletionDeletableItems = t('privacy.sections.dataDeletion.deletableItems', { returnObjects: true }) as string[];
+  const dataDeletionRetainedItems = t('privacy.sections.dataDeletion.retainedItems', { returnObjects: true }) as string[];
+
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          Política de Privacidad
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Última actualización: 10 de febrero de 2026
-        </Typography>
+    <ContentPage
+      kicker={t('common.kicker')}
+      title={t('privacy.title')}
+      meta={t('common.lastUpdated')}
+    >
+      <h2>{t('privacy.sections.collection.heading')}</h2>
+      <p>{t('privacy.sections.collection.body')}</p>
 
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            1. Información que Recopilamos
-          </Typography>
-          <Typography variant="body1" paragraph>
-            OpenRed recopila información que usted nos proporciona directamente cuando se registra en nuestra plataforma,
-            incluyendo nombre, dirección de correo electrónico y datos de mediciones de radiación.
-          </Typography>
+      <h2>{t('privacy.sections.usage.heading')}</h2>
+      <p>{t('privacy.sections.usage.intro')}</p>
+      <ul>
+        {usageItems.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            2. Uso de la Información
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Utilizamos la información recopilada para:
-          </Typography>
-          <ul>
-            <li><Typography variant="body1">Proporcionar, mantener y mejorar nuestros servicios</Typography></li>
-            <li><Typography variant="body1">Procesar y completar transacciones</Typography></li>
-            <li><Typography variant="body1">Enviar información técnica y actualizaciones</Typography></li>
-            <li><Typography variant="body1">Responder a sus comentarios y preguntas</Typography></li>
-            <li><Typography variant="body1">Visualizar datos de mediciones de forma agregada</Typography></li>
-          </ul>
+      <h2>{t('privacy.sections.sharing.heading')}</h2>
+      <p>{t('privacy.sections.sharing.body')}</p>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            3. Compartir Información
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Los datos de mediciones ambientales pueden ser compartidos de forma pública y anónima para fines
-            de investigación científica y concienciación ciudadana. No compartimos información personal
-            identificable con terceros sin su consentimiento explícito.
-          </Typography>
+      <h2>{t('privacy.sections.security.heading')}</h2>
+      <p>{t('privacy.sections.security.body')}</p>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            4. Seguridad de Datos
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Implementamos medidas de seguridad técnicas y organizativas para proteger su información personal
-            contra acceso no autorizado, alteración o destrucción.
-          </Typography>
+      <h2>{t('privacy.sections.rights.heading')}</h2>
+      <p>{t('privacy.sections.rights.body')}</p>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            5. Sus Derechos
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Usted tiene derecho a acceder, corregir o eliminar su información personal en cualquier momento.
-            Puede ejercer estos derechos contactándonos en frasanz@ibercivis.es
-          </Typography>
+      <h2>{t('privacy.sections.cookies.heading')}</h2>
+      <p>{t('privacy.sections.cookies.body')}</p>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            6. Cookies y Tecnologías Similares
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Utilizamos cookies y tecnologías similares para mejorar la experiencia del usuario, mantener
-            sesiones activas y analizar el uso de nuestra plataforma.
-          </Typography>
+      <h2>{t('privacy.sections.googleAuth.heading')}</h2>
+      <p>{t('privacy.sections.googleAuth.body')}</p>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            7. Autenticación con Google
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Cuando utiliza la autenticación de Google, recibimos información básica de perfil (nombre y correo electrónico)
-            según los permisos que usted otorgue. No tenemos acceso a su contraseña de Google.
-          </Typography>
+      <h2 id="account-deletion">{t('privacy.sections.accountDeletion.heading')}</h2>
+      <p>{t('privacy.sections.accountDeletion.intro')}</p>
+      <ol>
+        {accountDeletionSteps.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ol>
+      <h3>{t('privacy.sections.accountDeletion.deletedHeading')}</h3>
+      <p>{t('privacy.sections.accountDeletion.deletedIntro')}</p>
+      <ul>
+        {accountDeletionDeletedItems.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
+      <h3>{t('privacy.sections.accountDeletion.retainedHeading')}</h3>
+      <p>{t('privacy.sections.accountDeletion.retainedIntro')}</p>
+      <ul>
+        {accountDeletionRetainedItems.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            8. Cambios a esta Política
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Podemos actualizar esta política de privacidad ocasionalmente. Le notificaremos sobre cambios
-            significativos publicando la nueva política en esta página.
-          </Typography>
+      <h2 id="data-deletion">{t('privacy.sections.dataDeletion.heading')}</h2>
+      <p>{t('privacy.sections.dataDeletion.intro')}</p>
+      <ol>
+        {dataDeletionSteps.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ol>
+      <h3>{t('privacy.sections.dataDeletion.deletableHeading')}</h3>
+      <ul>
+        {dataDeletionDeletableItems.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
+      <h3>{t('privacy.sections.dataDeletion.retainedHeading')}</h3>
+      <p>{t('privacy.sections.dataDeletion.retainedIntro')}</p>
+      <ul>
+        {dataDeletionRetainedItems.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
 
-          <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-            9. Contacto
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Si tiene preguntas sobre esta Política de Privacidad, contáctenos en:
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Email: frasanz@ibercivis.es<br />
-            OpenRed - Fundación Ibercivis
-          </Typography>
+      <h2>{t('privacy.sections.changes.heading')}</h2>
+      <p>{t('privacy.sections.changes.body')}</p>
 
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Link to="/" style={{ textDecoration: 'none' }}>
-              <Typography variant="body2" color="primary">
-                Volver a la página principal
-              </Typography>
-            </Link>
-          </Box>
-        </Box>
-      </Paper>
-    </Container>
+      <h2>{t('privacy.sections.contact.heading')}</h2>
+      <p>{t('privacy.sections.contact.body')}</p>
+      <p>
+        {t('common.contactEmailLabel')} {t('common.contactEmail')}<br />
+        {t('common.contactOrg')}
+      </p>
+
+      <p>
+        <Link to="/">{t('common.backToHome')}</Link>
+      </p>
+    </ContentPage>
   );
 };
 

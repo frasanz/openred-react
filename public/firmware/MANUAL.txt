@@ -1,0 +1,120 @@
+======================================================================
+               GUÍA DE USUARIO - GATEWAY ESP32 OPENRED
+                     Para detectores RadiaCode
+======================================================================
+
+Este dispositivo actúa como pasarela (Gateway) para leer los datos
+de radiación de tu detector RadiaCode por conexión inalámbrica Bluetooth
+(BLE) y enviarlos de forma segura a través de Internet (Wi-Fi)
+a la plataforma comunitaria OPENRED (https://open-red.es/).
+
+----------------------------------------------------------------------
+1. PRIMERA PUESTA EN MARCHA Y CONFIGURACIÓN WI-FI
+----------------------------------------------------------------------
+
+Si el dispositivo no tiene una red Wi-Fi configurada (o si la red
+configurada no está a su alcance), entrará automáticamente en modo
+"PORTAL DE CONFIGURACIÓN".
+
+Pasos para configurarlo:
+
+1. Busca en tu teléfono móvil o PC las redes Wi-Fi disponibles.
+2. Conéctate a la red inalámbrica abierta llamada:
+   -->  OPENRED-ESP32-Config
+3. Una vez conectado, abre el navegador web de tu móvil o PC.
+4. Entra a la siguiente dirección IP en la barra de direcciones:
+   -->  http://192.168.4.1
+5. Se cargará el portal de configuración premium de OPENRED.
+6. Rellena los datos del formulario:
+   - SELECTOR WI-FI: Selecciona tu red doméstica o escribe su nombre.
+     (Nota: El ESP32 solo soporta redes Wi-Fi de 2.4 GHz).
+   - CONTRASEÑA: Introduce la clave de tu red Wi-Fi.
+   - URL DE ENVÍO: Debe ser exactamente la siguiente (ya viene
+     rellenada por defecto):
+     https://api.open-red.es/api/ingest/radiation/
+   - TOKEN: Introduce tu "Token de Dispositivo" (X-Device-Token).
+     (Este token se obtiene en la web de Open-Red al añadir una
+      estación y es específico para ese sensor, no de usuario).
+7. Haz clic en "Guardar y Conectar".
+8. El ESP32 guardará los datos en su memoria no volátil (NVS),
+   se reiniciará automáticamente e intentará conectarse.
+
+----------------------------------------------------------------------
+2. CÓMO VOLVER A ABRIR EL PORTAL (RECONFIGURAR / FACTORY RESET)
+----------------------------------------------------------------------
+
+Si te has mudado, has cambiado de router o quieres introducir un token
+diferente, puedes forzar la reconfiguración del dispositivo de manera
+visual utilizando la pantalla OLED y el botón físico:
+
+1. Presiona el botón "PRG" del ESP32 varias veces hasta llegar a la
+   PANTALLA 3 (indicada con [PORT] en la cabecera).
+2. En pantalla se leerá: "¿Abrir Portal? Manten pulsado PRG por 3s".
+3. Mantén pulsado el botón "PRG".
+4. Verás aparecer una cuenta atrás en segundos y una barra de progreso
+   que se irá rellenando en la pantalla.
+5. Sujeta el botón hasta que la barra se complete (3 segundos). La
+   pantalla mostrará "BORRANDO CONFIG..." y el dispositivo se
+   reiniciará, abriendo el portal Wi-Fi "OPENRED-ESP32-Config" de nuevo.
+   (Si sueltas el botón antes de los 3 segundos, la operación se
+   cancela de forma segura).
+
+Nota alternativa: Si mantienes presionado el botón "PRG" físicamente
+mientras enciendes el ESP32 o presionas el botón "RST", también se
+ejecutará un borrado completo de fábrica inmediatamente.
+
+----------------------------------------------------------------------
+3. FUNCIONAMIENTO Y INTERFAZ DE LAS PANTALLAS (OLED)
+----------------------------------------------------------------------
+
+Al pulsar y soltar brevemente el botón "PRG", puedes alternar
+entre las 4 pantallas del dispositivo:
+
+* CABECERA COMÚN (Siempre visible en todas las pantallas):
+  - Izquierda: Nombre del proyecto "OPENRED".
+  - Centro: Icono dinámico de señal Wi-Fi (o una 'x' si no está conectado).
+  - Indicador de Internet/API: Un punto blanco lleno (•) indica que el
+    último envío HTTPS fue exitoso. Un punto vacío (o) indica que
+    hubo un error de autenticación, red o DNS.
+  - Derecha: Nivel de batería del detector RadiaCode (ej: B:50%).
+
+* PANTALLA 0 (Vista General):
+  - Muestra en tiempo real la tasa de dosis actual en uSv/h (microSieverts
+    por hora) de forma ampliada.
+  - Cuentas por segundo (CPS) y temperatura del detector en la base.
+  - Tiempo restante para el siguiente envío: "Envio en: X s".
+
+* PANTALLA 1 (Espectro Gamma):
+  - Gráfico en tiempo real de los canales de espectro capturados por
+    el detector RadiaCode.
+  - En la parte inferior muestra la tasa de dosis y el canal de energía
+    pico detectado ("Pico:XXXX").
+
+* PANTALLA 2 (Wi-Fi y Envíos):
+  - Muestra el nombre de la red Wi-Fi y la potencia de señal (RSSI).
+  - La dirección IP local asignada al ESP32.
+  - Cantidad total de paquetes de radiación enviados exitosamente.
+  - Tiempo restante para la transmisión: "Envio en: X s".
+  - Estado del último error detectado (ej: Err: Ninguno, Error Auth 403,
+    Err SSL o Error DNS).
+
+* PANTALLA 3 (Portal de Configuración):
+  - Interfaz de activación del modo reconfiguración descrito en el punto 2.
+
+----------------------------------------------------------------------
+4. TIEMPOS Y ENVÍO DE DATOS
+----------------------------------------------------------------------
+
+- El primer envío de datos se realiza de forma INMEDIATA en cuanto el
+  ESP32 logra conectarse tanto al Wi-Fi de tu hogar como al RadiaCode.
+  Esto permite verificar en segundos si tu token es correcto.
+- Los envíos sucesivos se ejecutan de forma automática cada 5 minutos
+  (300 segundos) para cumplir con el intervalo esperado en la
+  plataforma Open-Red y evitar que el watchdog marque la estación offline.
+- Durante el envío, la pantalla mostrará una barra invertida muy visual
+  con el texto "ENVIANDO..." en la base de la pantalla, sin obstaculizar
+  la tasa de dosis actual.
+
+======================================================================
+                 Proyecto OPENRED - Radiacode Gateway
+======================================================================

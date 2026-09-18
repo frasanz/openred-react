@@ -1,0 +1,30 @@
+{
+  "kicker": "APP",
+  "title": "Aplicación móvil",
+  "stores": {
+    "heading": "Descargar la app",
+    "description": "OpenRed ya está disponible en las tiendas oficiales. Descárgala gratis para Android e iOS.",
+    "googlePlay": "Disponible en Google Play",
+    "appStore": "Disponible en App Store"
+  },
+  "about": {
+    "heading": "Acerca de la app",
+    "body": "La aplicación móvil OpenRed te permite registrar mediciones ambientales directamente desde tu dispositivo Android. Conecta tus sensores de radiación y contaminación lumínica para contribuir a la ciencia ciudadana en tiempo real."
+  },
+  "features": {
+    "heading": "Características",
+    "measurementsLabel": "Registro de mediciones",
+    "measurementsDesc": "Captura datos de radiación gamma y contaminación lumínica con tus dispositivos conectados.",
+    "tracksLabel": "Tracks en tiempo real",
+    "tracksDesc": "Crea y gestiona tracks de mediciones durante tus campañas de monitoreo.",
+    "syncLabel": "Sincronización automática",
+    "syncDesc": "Tus datos se sincronizan automáticamente con la plataforma OpenRed.",
+    "mapLabel": "Visualización en mapa",
+    "mapDesc": "Visualiza tus mediciones en tiempo real sobre un mapa interactivo."
+  },
+  "contactBanner": {
+    "title": "¿Problemas o sugerencias?",
+    "body": "Contáctanos en frasanz@ibercivis.es"
+  },
+  "backToHome": "Volver a la página principal"
+}

@@ -1,0 +1,42 @@
+{
+  "header": {
+    "kicker": "Statistics · Radiation Network",
+    "title": "Project statistics",
+    "subtitle": "Impact and reach of the OpenRed community"
+  },
+  "kpis": {
+    "totalMeasurements": "Total measurements",
+    "contributors": "Contributors",
+    "registeredTracks": "Registered tracks",
+    "totalDistance": "Total distance",
+    "longestTrack": "Longest track",
+    "maxPerTrack": "Max per track",
+    "maxDose": "Maximum dose",
+    "minDose": "Minimum dose",
+    "minLatitude": "Min latitude",
+    "maxLatitude": "Max latitude",
+    "minLongitude": "Min longitude",
+    "maxLongitude": "Max longitude",
+    "earthCircumferences": "Trips around the Earth",
+    "marathons": "Marathons"
+  },
+  "units": {
+    "south": "south",
+    "north": "north",
+    "west": "west",
+    "east": "east"
+  },
+  "dataPeriod": {
+    "label": "Data period",
+    "days_one": "day",
+    "days_other": "days"
+  },
+  "map": {
+    "measurements": "Measurements",
+    "dose": "Dose",
+    "doseRateTitle": "Dose Rate"
+  },
+  "errors": {
+    "loadFailed": "Error loading statistics. Please try again."
+  }
+}

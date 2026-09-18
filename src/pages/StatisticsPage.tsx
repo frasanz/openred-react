@@ -3,28 +3,11 @@ import {
   Box,
   Container,
   Typography,
-  Paper,
   Grid,
-  Card,
-  CardContent,
   CircularProgress,
   Alert,
-  Chip,
-  Divider,
-  useTheme,
-  alpha,
 } from '@mui/material';
-import {
-  TrendingUp as TrendingUpIcon,
-  Timeline as TimelineIcon,
-  Route as RouteIcon,
-  Public as PublicIcon,
-  EmojiEvents as TrophyIcon,
-  Speed as SpeedIcon,
-  AccessTime as ClockIcon,
-  Place as PlaceIcon,
-  Science as RadiationIcon,
-} from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import DeckGL from '@deck.gl/react';
 import { _GlobeView as GlobeView } from '@deck.gl/core';
 import { SolidPolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
@@ -36,13 +19,36 @@ import {
   RecordsStatistics,
   HeatmapStatistics,
 } from '../types/statistics';
-import {
-  OPENRED_ACCENT_RED,
-  OPENRED_NAVY,
-  OPENRED_PAGE_BG,
-  openredStatCardContentSx,
-  openredStatCardSx,
-} from '../styles/boxes';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+import { RADIATION_LEGEND } from '../utils/radiationColors';
+import { FloatPanel } from '../components/ui/FloatPanel';
+import { useLocale } from '../utils/i18nFormat';
+
+// Celda KPI: label mono arriba, valor mono tabular abajo. Sin iconos, sin acento.
+const KpiCell: React.FC<{ label: string; value: string; unit?: string; dim?: boolean }> = ({ label, value, unit, dim }) => (
+  <Box sx={{ p: 2.25, borderRight: `1px solid ${T.border}`, borderBottom: `1px dashed ${T.hairline}` }}>
+    <Typography sx={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.8px', textTransform: 'uppercase', color: T.textMid, mb: 1 }}>
+      {label}
+    </Typography>
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+      <Typography
+        sx={{
+          fontFamily: MONO,
+          fontWeight: 500,
+          fontSize: 28,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          fontVariantNumeric: 'tabular-nums',
+          color: dim ? T.textDim : T.text,
+        }}
+      >
+        {value}
+      </Typography>
+      {unit && <Typography sx={{ fontFamily: MONO, fontSize: 12, color: T.textDim }}>{unit}</Typography>}
+    </Box>
+  </Box>
+);
 
 // Color del globo
 const GLOBE_RESOLUTION = 100;
@@ -52,20 +58,16 @@ const EARTH_RADIUS_METERS = 6.3e6;
 const COUNTRIES = 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_admin_0_scale_rank.geojson';
 
 const StatisticsPage: React.FC = () => {
-  const theme = useTheme();
+  const { t } = useTranslation('statistics');
+  const { formatNumber, formatDate } = useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [globalStats, setGlobalStats] = useState<GlobalStatistics | null>(null);
   const [heatmapStats, setHeatmapStats] = useState<HeatmapStatistics | null>(null);
   const [hoveredHex, setHoveredHex] = useState<any>(null);
 
-  const pageBg = OPENRED_PAGE_BG;
-  const accentRed = OPENRED_ACCENT_RED;
-  const navy = OPENRED_NAVY;
-
-  const statCardSx = openredStatCardSx;
-  const statCardContentSx = openredStatCardContentSx;
+  const pageBg = T.bg;
 
   const getRadiationColor = useCallback((value: number): [number, number, number, number] => {
     // value en µSv/h (ya dividido por 100 desde el backend)
@@ -161,18 +163,16 @@ const StatisticsPage: React.FC = () => {
       setHeatmapStats(heatmap);
     } catch (err: any) {
       console.error('Error loading statistics:', err);
-      setError('Error al cargar las estadísticas. Por favor, intenta de nuevo.');
+      setError(t('errors.loadFailed'));
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   };
 
   if (loading) {
@@ -197,64 +197,33 @@ const StatisticsPage: React.FC = () => {
       minHeight: '100vh',
       background: pageBg,
     }}>
-      {/* Black Header with Wave */}
+      {/* Header compacto (alineado con topbar/paneles) */}
       <Box sx={{
-        background: '#000000',
-        pt: 8,
-        pb: 10,
-        position: 'relative',
-        overflow: 'hidden',
+        background: T.bg,
+        borderBottom: `1px solid ${T.border}`,
+        px: { xs: 2, md: 4 },
+        py: 2.5,
       }}>
-        <Container maxWidth="xl">
-          <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-            <Typography
-              variant="h2"
-              component="h1"
-              fontFamily="'Bricolage Grotesque', 'Montserrat', sans-serif"
-              fontWeight="600"
-              sx={{
-                color: '#E4EEFA',
-                mb: 2,
-                letterSpacing: -1
-              }}
-            >
-              Estadísticas del Proyecto
-            </Typography>
-            <Typography
-              variant="h6"
-              sx={{
-                color: '#E4EEFA',
-                maxWidth: 600,
-                mx: 'auto',
-                fontWeight: 400,
-                lineHeight: 1.6
-              }}
-            >
-              Descubre el impacto y alcance de la comunidad Openred a través de datos detallados
-            </Typography>
-          </Box>
+        <Container maxWidth="xl" disableGutters>
+          <Typography
+            sx={{
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              color: T.textMid,
+              mb: 0.5,
+            }}
+          >
+            {t('header.kicker')}
+          </Typography>
+          <Typography component="h1" sx={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, color: T.text, letterSpacing: '-0.015em', lineHeight: 1.1 }}>
+            {t('header.title')}
+          </Typography>
+          <Typography sx={{ fontFamily: MONO, mt: 0.5, fontSize: 13, color: T.textDim }}>
+            {t('header.subtitle')}
+          </Typography>
         </Container>
-        {/* Wave SVG */}
-        <Box
-          component="svg"
-          sx={{
-            position: 'absolute',
-            bottom: -1,
-            left: 0,
-            width: '100%',
-            height: 180,
-            display: 'block',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-          viewBox="0 0 1440 180"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0,0 C480,180 960,180 1440,0 L1440,180 L0,180 Z"
-            fill={pageBg}
-          />
-        </Box>
       </Box>
 
       {/* Content Area */}
@@ -264,342 +233,87 @@ const StatisticsPage: React.FC = () => {
         <Grid container spacing={4}>
           {/* LEFT COLUMN - All Statistics */}
           <Grid item xs={12} lg={6}>
-            {/* Key Metrics Section */}
             {globalStats && (
-              <Box>
-                <Grid container spacing={3} sx={{ mb: 4 }}>
-                  {/* Tarjetas principales minimalistas */}
-                  <Grid item xs={12} sm={6}>
-                    <Card sx={statCardSx}>
-                      <CardContent sx={statCardContentSx}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <TimelineIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                            TOTAL MEDICIONES
-                          </Typography>
-                        </Box>
-                        <Typography className="statNumber" variant="h2" sx={{}}>
-                          {globalStats.totals.measurements.toLocaleString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Card sx={statCardSx}>
-                      <CardContent sx={statCardContentSx}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <RouteIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                            TRACKS REGISTRADOS
-                          </Typography>
-                        </Box>
-                        <Typography className="statNumber" variant="h2" sx={{}}>
-                          {globalStats.totals.tracks}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Card sx={statCardSx}>
-                      <CardContent sx={statCardContentSx}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <RadiationIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                            DOSIS MÁXIMA
-                          </Typography>
-                        </Box>
-                        <Typography className="statNumber" variant="h2" sx={{}}>
-                          {globalStats.records.highest_dose_rate != null ? globalStats.records.highest_dose_rate.toFixed(2) : '—'}
-                          <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                            µSv/h
-                          </Typography>
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Card sx={statCardSx}>
-                      <CardContent sx={statCardContentSx}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <PublicIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                          <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                            CONTRIBUIDORES
-                          </Typography>
-                        </Box>
-                        <Typography className="statNumber" variant="h2" sx={{}}>
-                          {globalStats.totals.contributors}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  {/* Fin tarjetas principales minimalistas */}
-                </Grid>
+              <Box
+                sx={{
+                  border: `1px solid ${T.border}`,
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+                }}
+              >
+                {([
+                  { label: t('kpis.totalMeasurements'), value: formatNumber(globalStats.totals.measurements) },
+                  { label: t('kpis.contributors'), value: formatNumber(globalStats.totals.contributors) },
+                  { label: t('kpis.registeredTracks'), value: formatNumber(globalStats.totals.tracks) },
+                  { label: t('kpis.totalDistance'), value: globalStats.distance.total_km.toFixed(2), unit: 'km' },
+                  { label: t('kpis.longestTrack'), value: globalStats.distance.longest_track_km.toFixed(2), unit: 'km' },
+                  { label: t('kpis.maxPerTrack'), value: formatNumber(globalStats.records.most_measurements_track) },
+                  { label: t('kpis.maxDose'), value: globalStats.records.highest_dose_rate != null ? globalStats.records.highest_dose_rate.toFixed(2) : '—', unit: 'µSv/h', dim: globalStats.records.highest_dose_rate == null },
+                  { label: t('kpis.minDose'), value: globalStats.records.lowest_dose_rate != null ? globalStats.records.lowest_dose_rate.toFixed(3) : '—', unit: 'µSv/h', dim: globalStats.records.lowest_dose_rate == null },
+                  { label: t('kpis.minLatitude'), value: `${globalStats.geographic.bbox.min_lat.toFixed(4)}°`, unit: t('units.south') },
+                  { label: t('kpis.maxLatitude'), value: `${globalStats.geographic.bbox.max_lat.toFixed(4)}°`, unit: t('units.north') },
+                  { label: t('kpis.minLongitude'), value: `${globalStats.geographic.bbox.min_lon.toFixed(4)}°`, unit: t('units.west') },
+                  { label: t('kpis.maxLongitude'), value: `${globalStats.geographic.bbox.max_lon.toFixed(4)}°`, unit: t('units.east') },
+                  { label: t('kpis.earthCircumferences'), value: globalStats.fun_facts.earth_circumferences.toFixed(4) },
+                  { label: t('kpis.marathons'), value: globalStats.fun_facts.marathon_equivalents.toFixed(1) },
+                ] as Array<{ label: string; value: string; unit?: string; dim?: boolean }>).map((k) => (
+                  <KpiCell key={k.label} label={k.label} value={k.value} unit={k.unit} dim={k.dim} />
+                ))}
+
+                {/* Período de datos - fila completa */}
+                <Box sx={{ gridColumn: '1 / -1', p: 2.25 }}>
+                  <Typography sx={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.8px', textTransform: 'uppercase', color: T.textMid, mb: 1 }}>
+                    {t('dataPeriod.label')}
+                  </Typography>
+                  <Typography sx={{ fontFamily: MONO, fontSize: 14, color: T.text, fontVariantNumeric: 'tabular-nums' }}>
+                    {formatDate(globalStats.date_range.first, dateOptions)} — {formatDate(globalStats.date_range.last, dateOptions)}
+                    <Box component="span" sx={{ ml: 1, color: T.textDim, fontSize: 12 }}>
+                      ({globalStats.date_range.days_active} {t('dataPeriod.days', { count: globalStats.date_range.days_active })})
+                    </Box>
+                  </Typography>
+                </Box>
               </Box>
-            )}
-            {/* Geographic & Fun Facts Section */}
-            {globalStats && (
-              <Box sx={{ mb: 4 }}>
-                <Grid container spacing={3} sx={{ mb: 4 }}>
-              {/* Distance Statistics */}
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <RouteIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        DISTANCIA TOTAL
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.distance.total_km.toFixed(2)}
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        km
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <TrophyIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        TRACK MÁS LARGO
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.distance.longest_track_km.toFixed(2)}
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        km
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Records Statistics */}
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <RadiationIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        DOSIS MÍNIMA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.records.lowest_dose_rate != null ? globalStats.records.lowest_dose_rate.toFixed(3) : '—'}
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        µSv/h
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <SpeedIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        MÁXIMO MEDICIONES
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.records.most_measurements_track.toLocaleString()}
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        en un track
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Geographic Coverage */}
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        LATITUD MÍNIMA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.geographic.bbox.min_lat.toFixed(4)}°
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        sur
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        LATITUD MÁXIMA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.geographic.bbox.max_lat.toFixed(4)}°
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        norte
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        LONGITUD MÍNIMA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.geographic.bbox.min_lon.toFixed(4)}°
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        oeste
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <PlaceIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        LONGITUD MÁXIMA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.geographic.bbox.max_lon.toFixed(4)}°
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 1, fontWeight: 400 }}>
-                        este
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Fun Facts */}
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <PublicIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        VUELTAS A LA TIERRA
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.fun_facts.earth_circumferences.toFixed(4)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <TrophyIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        MARATONES
-                      </Typography>
-                    </Box>
-                    <Typography className="statNumber" variant="h2" sx={{}}>
-                      {globalStats.fun_facts.marathon_equivalents.toFixed(1)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Date Range */}
-              <Grid item xs={12}>
-                <Card sx={statCardSx}>
-                  <CardContent sx={statCardContentSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <ClockIcon sx={{ color: 'inherit', fontSize: 18 }} />
-                      <Typography variant="subtitle2" sx={{ color: 'inherit', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                        PERÍODO DE DATOS
-                      </Typography>
-                    </Box>
-                    <Typography className="statValue" variant="h4" fontWeight="700" sx={{ mt: 1, letterSpacing: -0.5 }}>
-                      {formatDate(globalStats.date_range.first)} - {formatDate(globalStats.date_range.last)}
-                      <Typography className="statUnit" component="span" variant="body2" sx={{ ml: 2, fontWeight: 400 }}>
-                        ({globalStats.date_range.days_active} {globalStats.date_range.days_active === 1 ? 'día' : 'días'} activo{globalStats.date_range.days_active > 1 ? 's' : ''})
-                      </Typography>
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
             )}
           </Grid>
           {/* RIGHT COLUMN - Map */}
           <Grid item xs={12} lg={6}>
             {heatmapStats && (
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, px: 1 }}>
-                  <PublicIcon sx={{ color: '#000000', fontSize: 18 }} />
-                  <Typography variant="subtitle2" sx={{ color: '#000000', fontWeight: 600, fontSize: 12, letterSpacing: 0.4 }}>
-                    MAPA
-                  </Typography>
-                </Box>
-                <Box sx={{
-                  bgcolor: '#000000',
-                  borderRadius: 3,
-                  p: 3,
-                  boxShadow: 'none',
-                }}>
-                <Box sx={{ 
-                  position: 'relative', 
-                  height: 520, 
-                  width: '100%',
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  border: 'none',
-                  mb: 0,
-                  bgcolor: `rgb(${BACKGROUND_COLOR.join(',')})`,
-                }}>
-                <DeckGL
-                  views={new GlobeView({ 
-                    resolution: GLOBE_RESOLUTION
-                  })}
-                  initialViewState={{
-                    longitude: 0,
-                    latitude: 20,
-                    zoom: 1
-                  }}
-                  controller={true}
-                  layers={heatmapLayer ? [...backgroundLayers, heatmapLayer] : backgroundLayers}
-                />
-                {hoveredHex && (
-                  <Box sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'rgba(0,0,0,0.85)', p: 2, borderRadius: 1, boxShadow: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Medidas: {hoveredHex.count}</Typography>
-                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Dosis promedio: {hoveredHex.avg_dose_rate.toFixed(3)} µSv/h</Typography>
+              <Box sx={{ position: { lg: 'sticky' }, top: 16 }}>
+                <Box sx={{ bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: '8px', p: 1.5 }}>
+                  <Box sx={{ position: 'relative', height: 520, width: '100%', borderRadius: '6px', overflow: 'hidden', bgcolor: `rgb(${BACKGROUND_COLOR.join(',')})` }}>
+                    <DeckGL
+                      views={new GlobeView({ resolution: GLOBE_RESOLUTION })}
+                      initialViewState={{ longitude: 0, latitude: 20, zoom: 1 }}
+                      controller={true}
+                      layers={heatmapLayer ? [...backgroundLayers, heatmapLayer] : backgroundLayers}
+                    />
+                    {hoveredHex && (
+                      <Box sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'rgba(18,22,27,0.96)', border: `1px solid ${T.border}`, p: 1.5, borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.32)' }}>
+                        <Typography sx={{ fontFamily: MONO, fontSize: 12, color: T.text }}>{t('map.measurements')}: {hoveredHex.count}</Typography>
+                        <Typography sx={{ fontFamily: MONO, fontSize: 12, color: T.text }}>{t('map.dose')}: {hoveredHex.avg_dose_rate.toFixed(3)} µSv/h</Typography>
+                      </Box>
+                    )}
                   </Box>
-                )}
+                </Box>
+
+                {/* Leyenda de la escala de radiación */}
+                <Box sx={{ mt: 2 }}>
+                  <FloatPanel title={t('map.doseRateTitle')} right="µSv/h">
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                      {RADIATION_LEGEND.map((item, index) => (
+                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ width: 20, height: 10, background: item.gradient, borderRadius: '2px', flexShrink: 0 }} />
+                          <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textMid }}>{item.label}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </FloatPanel>
+                </Box>
               </Box>
-              </Box>
-            </Box>
-          )}
-        </Grid>
+            )}
+          </Grid>
       </Grid>
       </Container>
     </Box>

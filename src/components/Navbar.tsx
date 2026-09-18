@@ -9,19 +9,48 @@ import {
   MenuItem,
   IconButton,
   Avatar,
-  useTheme,
+  Divider,
 } from '@mui/material';
-import { AccountCircle, Logout, DeviceHub, Person, Route, BarChart, ArrowDropDown, Android } from '@mui/icons-material';
+import { Logout, Person, Route as RouteIcon, MoreVert, DeviceHub, Telegram } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from './LanguageSwitcher';
+import { darkTokens as T } from '../theme/tokens';
+import { MONO } from '../theme/theme';
+
+// Nav principal -> solo rutas reales existentes
+const NAV_ITEMS = [
+  { key: 'nav.map', path: '/' },
+  { key: 'nav.mobileApp', path: '/mobile-app' },
+  { key: 'nav.esp32', path: '/esp32' },
+  { key: 'nav.statistics', path: '/statistics' },
+];
+
+// Enlaces secundarios (antes en el dropdown "Información")
+const MORE_LINKS = [
+  { key: 'nav.about', path: '/about' },
+  { key: 'nav.privacyPolicy', path: '/privacy-policy' },
+  { key: 'nav.termsOfService', path: '/terms-of-service' },
+];
+
+const TELEGRAM_URL = 'https://web.telegram.org/k/#@OpenRedProject';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [infoAnchorEl, setInfoAnchorEl] = React.useState<null | HTMLElement>(null);
-  const theme = useTheme();
+
+  // Reloj UTC presentacional (chrome "LIVE ... UTC" del mockup)
+  const [now, setNow] = React.useState<Date>(new Date());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const utc = now.toISOString().slice(11, 19);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -59,243 +88,190 @@ const Navbar: React.FC = () => {
     handleClose();
   };
 
+  const handleDevices = () => {
+    navigate('/devices');
+    handleClose();
+  };
+
   const handleProfile = () => {
     navigate('/profile');
     handleClose();
   };
 
+  const isActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  // En pantallas de auth, dejar solo brand + LIVE/reloj
+  const AUTH_ROUTES = ['/login', '/register', '/reset-password', '/email-verification', '/verify-email'];
+  const isAuthRoute = AUTH_ROUTES.some((p) => location.pathname.startsWith(p));
+
+  const navHandler = (path: string) => {
+    if (path === '/statistics') return handleStatistics;
+    if (path === '/tracks') return handleTracks;
+    return () => navigate(path);
+  };
+
   return (
-    <AppBar 
-      position="static" 
-      elevation={0}
-      sx={{ 
-        backgroundColor: '#000000',
-        color: '#ffffff',
-        minHeight: '64px',
-        borderRadius: 0,
-        border: 'none',
-      }}
-    >
-      <Toolbar sx={{ px: 3, minHeight: '64px !important' }}>
-        <Typography 
-          variant="titleLarge" 
-          component="div" 
-          sx={{ 
-            cursor: 'pointer',
-            fontWeight: 600,
-            color: '#ffffff',
-          }}
-          onClick={() => navigate('/')}
-        >
-          Open-red
-        </Typography>
-
-        {/* Espaciador para empujar el contenido a la derecha */}
-        <Box sx={{ flexGrow: 1 }} />
-
-        {/* Dropdown de Información - visible siempre */}
-        <Button
-          endIcon={<ArrowDropDown />}
-          onClick={handleInfoMenu}
-          sx={{
-            textTransform: 'none',
-            color: '#ffffff',
-            mr: 2,
-            '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.1)',
-            }
-          }}
-        >
-          Información
-        </Button>
-        <Menu
-          anchorEl={infoAnchorEl}
-          open={Boolean(infoAnchorEl)}
-          onClose={handleInfoClose}
-          PaperProps={{
-            sx: {
-              backgroundColor: '#CDDCED',
-            }
-          }}
-        >
-          <MenuItem 
-            onClick={() => { 
-              navigate('/statistics'); 
-              handleInfoClose(); 
-            }}
+    <AppBar position="static">
+      <Toolbar sx={{ gap: 2, justifyContent: 'space-between' }}>
+        {/* Col 1: brand + status */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+          <Box
+            onClick={() => navigate('/')}
+            sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, cursor: 'pointer' }}
           >
-            <BarChart sx={{ mr: 1 }} />
-            Estadísticas
-          </MenuItem>
-          <MenuItem 
-            onClick={() => { 
-              navigate('/mobile-app'); 
-              handleInfoClose(); 
-            }}
-          >
-            <Android sx={{ mr: 1 }} />
-            App Móvil
-          </MenuItem>
-          <MenuItem 
-            onClick={() => { 
-              navigate('/about'); 
-              handleInfoClose(); 
-            }}
-          >
-            Acerca de
-          </MenuItem>
-          <MenuItem 
-            onClick={() => { 
-              navigate('/privacy-policy'); 
-              handleInfoClose(); 
-            }}
-          >
-            Política de Privacidad
-          </MenuItem>
-          <MenuItem 
-            onClick={() => { 
-              navigate('/terms-of-service'); 
-              handleInfoClose(); 
-            }}
-          >
-            Términos de Servicio
-          </MenuItem>
-        </Menu>
-
-        {isAuthenticated ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography 
-              variant="bodyMedium" 
-              sx={{ 
-                color: '#ffffff',
-              }}
-            >
-              Hola, {user?.username || user?.email.split('@')[0]}
+            <Typography sx={{ fontWeight: 700, fontSize: 14, letterSpacing: '0.6px', color: T.text }}>
+              OPENRED
             </Typography>
-            
-            <IconButton
-              size="large"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleMenu}
-              sx={{
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                }
-              }}
+            <Typography
+              sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim, letterSpacing: '0.6px', textTransform: 'uppercase' }}
             >
-              <Avatar 
-                sx={{ 
-                  width: 32, 
-                  height: 32, 
-                  bgcolor: '#ffffff',
-                  color: '#000000',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }}
-              >
-                {user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || <AccountCircle />}
-              </Avatar>
-            </IconButton>
-            
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              PaperProps={{
-                sx: {
-                  backgroundColor: '#CDDCED',
-                }
-              }}
-            >
-              <MenuItem 
-                onClick={handleTracks}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E4EEFA',
-                  }
-                }}
-              >
-                <Route sx={{ mr: 2, color: '#000000' }} />
-                <Typography variant="bodyMedium" sx={{ color: '#000000' }}>Mis Tracks</Typography>
-              </MenuItem>
-              <MenuItem 
-                onClick={handleProfile}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E4EEFA',
-                  }
-                }}
-              >
-                <Person sx={{ mr: 2, color: '#000000' }} />
-                <Typography variant="bodyMedium" sx={{ color: '#000000' }}>Mi Perfil</Typography>
-              </MenuItem>
-              <MenuItem 
-                onClick={handleLogout}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E4EEFA',
-                  }
-                }}
-              >
-                <Logout sx={{ mr: 2, color: '#F05255' }} />
-                <Typography variant="bodyMedium" sx={{ color: '#F05255' }}>Cerrar Sesión</Typography>
-              </MenuItem>
-            </Menu>
+              / Network
+            </Typography>
           </Box>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Button 
-                color="inherit" 
-                onClick={() => navigate('/login')}
-                sx={{ 
-                  textTransform: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
-                  }
+          <Box
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              alignItems: 'center',
+              gap: 1.5,
+              pl: 1.5,
+              borderLeft: `1px solid ${T.border}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: T.ok, boxShadow: `0 0 6px ${T.ok}` }} />
+              <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textMid, letterSpacing: '0.6px' }}>
+                {t('status.live')}
+              </Typography>
+            </Box>
+            <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim }}>{utc} UTC</Typography>
+          </Box>
+        </Box>
+
+        {/* Col 2: nav principal (oculta en auth) */}
+        {!isAuthRoute && (
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <Button
+                key={item.path}
+                onClick={navHandler(item.path)}
+                disableRipple
+                sx={{
+                  minWidth: 'auto',
+                  px: 1.25,
+                  py: 0.5,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 0,
+                  color: active ? T.text : T.textMid,
+                  borderBottom: active ? `2px solid ${T.accent}` : '2px solid transparent',
+                  '&:hover': { color: T.text, backgroundColor: 'transparent' },
                 }}
               >
-                Iniciar Sesión
+                {t(item.key)}
               </Button>
-              <Button 
-                color="inherit" 
-                onClick={() => navigate('/register')}
-                sx={{ 
-                  textTransform: 'none',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderColor: 'rgba(255,255,255,0.5)'
-                  }
+            );
+          })}
+        </Box>
+        )}
+
+        {/* Col 3: idioma (siempre) + acciones (oculta en auth) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LanguageSwitcher />
+
+          {!isAuthRoute && (
+          <>
+          <IconButton size="small" onClick={handleInfoMenu} sx={{ color: T.textMid }}>
+            <MoreVert fontSize="small" />
+          </IconButton>
+          <Menu anchorEl={infoAnchorEl} open={Boolean(infoAnchorEl)} onClose={handleInfoClose}>
+            {MORE_LINKS.map((l) => (
+              <MenuItem
+                key={l.path}
+                onClick={() => {
+                  navigate(l.path);
+                  handleInfoClose();
                 }}
+                sx={{ fontSize: 13 }}
               >
-                Registrarse
+                {t(l.key)}
+              </MenuItem>
+            ))}
+          </Menu>
+
+          <IconButton
+            size="small"
+            component="a"
+            href={TELEGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('nav.telegram') as string}
+            sx={{ color: T.textMid }}
+          >
+            <Telegram fontSize="small" />
+          </IconButton>
+
+          {isAuthenticated ? (
+            <>
+              <IconButton onClick={handleMenu} size="small" sx={{ p: 0.5 }}>
+                <Avatar
+                  sx={{ width: 26, height: 26, fontSize: 12, fontFamily: MONO, bgcolor: T.accent, color: '#06262a' }}
+                >
+                  {user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
+                </Avatar>
+              </IconButton>
+              <Box sx={{ display: { xs: 'none', md: 'block' }, lineHeight: 1.1 }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 600, color: T.text }}>
+                  {user?.username || user?.email?.split('@')[0]}
+                </Typography>
+                <Typography sx={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>
+                  {user?.is_staff ? t('role.staff') : t('role.contributor')}
+                </Typography>
+              </Box>
+
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                keepMounted
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+              >
+                <MenuItem onClick={handleTracks} sx={{ fontSize: 13, gap: 1.5 }}>
+                  <RouteIcon fontSize="small" sx={{ color: T.textMid }} />
+                  {t('nav.myTracks')}
+                </MenuItem>
+                <MenuItem onClick={handleDevices} sx={{ fontSize: 13, gap: 1.5 }}>
+                  <DeviceHub fontSize="small" sx={{ color: T.textMid }} />
+                  {t('nav.myDevices')}
+                </MenuItem>
+                <MenuItem onClick={handleProfile} sx={{ fontSize: 13, gap: 1.5 }}>
+                  <Person fontSize="small" sx={{ color: T.textMid }} />
+                  {t('nav.myProfile')}
+                </MenuItem>
+                <Divider sx={{ borderColor: T.border }} />
+                <MenuItem onClick={handleLogout} sx={{ fontSize: 13, gap: 1.5, color: 'error.main' }}>
+                  <Logout fontSize="small" sx={{ color: 'error.main' }} />
+                  {t('nav.logout')}
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button onClick={() => navigate('/login')} sx={{ fontSize: 13, color: T.textMid }}>
+                {t('nav.login')}
+              </Button>
+              <Button variant="outlined" onClick={() => navigate('/register')} sx={{ fontSize: 13 }}>
+                {t('nav.register')}
               </Button>
             </Box>
+          )}
           </>
-        )}
+          )}
+        </Box>
       </Toolbar>
     </AppBar>
   );

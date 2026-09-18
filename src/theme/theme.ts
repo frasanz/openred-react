@@ -1,349 +1,186 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, ThemeOptions } from '@mui/material/styles';
+import './theme-types';
+import { darkTokens, lightTokens, ACCENT_HEX, ACCENT_DARK_HEX, OK_HEX, Tokens } from './tokens';
 
-// Material Design 3 Color Tokens
-const md3Colors = {
-  primary: {
-    0: '#000000',
-    10: '#001f25',
-    20: '#00363d',
-    25: '#00424a',
-    30: '#004f58',
-    35: '#005d67',
-    40: '#006b76',
-    50: '#008895',
-    60: '#00a6b6',
-    70: '#00c5d7',
-    80: '#4ee6fa',
-    90: '#97f0ff',
-    95: '#cbf8ff',
-    98: '#eafcff',
-    99: '#f4feff',
-    100: '#ffffff',
-  },
-  secondary: {
-    0: '#000000',
-    10: '#0a1f23',
-    20: '#1f3439',
-    25: '#2a3f44',
-    30: '#354a50',
-    35: '#40565c',
-    40: '#4c6269',
-    50: '#647b82',
-    60: '#7e959c',
-    70: '#98afb6',
-    80: '#b3cad1',
-    90: '#cfe6ed',
-    95: '#ddf4fb',
-    98: '#eafcff',
-    99: '#f4feff',
-    100: '#ffffff',
-  },
-  tertiary: {
-    0: '#000000',
-    10: '#1a1c2e',
-    20: '#2f3143',
-    25: '#3a3c4f',
-    30: '#46485c',
-    35: '#525469',
-    40: '#5e6076',
-    50: '#777990',
-    60: '#9192ab',
-    70: '#acadc6',
-    80: '#c7c8e2',
-    90: '#e3e4ff',
-    95: '#f1f2ff',
-    98: '#faf9ff',
-    99: '#fefbff',
-    100: '#ffffff',
-  },
-  neutral: {
-    0: '#000000',
-    4: '#0f1415',
-    6: '#131718',
-    10: '#191c1d',
-    12: '#1d2021',
-    17: '#282b2c',
-    20: '#2e3132',
-    22: '#323536',
-    24: '#363a3b',
-    25: '#383c3d',
-    30: '#444748',
-    35: '#4f5354',
-    40: '#5c5f60',
-    50: '#747778',
-    60: '#8e9192',
-    70: '#a8abac',
-    80: '#c4c6c7',
-    87: '#d6d8da',
-    90: '#dfe2e3',
-    92: '#e5e8e9',
-    94: '#ebeef0',
-    95: '#eef1f2',
-    96: '#f1f4f5',
-    98: '#f7fafb',
-    99: '#fafdfе',
-    100: '#ffffff',
-  },
-  error: {
-    0: '#000000',
-    10: '#410e0b',
-    20: '#601410',
-    25: '#6f1913',
-    30: '#7e1f16',
-    35: '#8d251a',
-    40: '#9c2b1e',
-    50: '#bb3a2a',
-    60: '#dc4a37',
-    70: '#ff5449',
-    80: '#ff897d',
-    90: '#ffb4ab',
-    95: '#ffede9',
-    98: '#fff8f6',
-    99: '#fffbff',
-    100: '#ffffff',
-  },
+// Familias tipográficas. SANS para UI; MONO para cifras, IDs, coordenadas, unidades, timestamps.
+export const SANS = "'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+export const MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+// Helper sx para texto técnico monoespaciado con cifras tabulares.
+export const monoSx = {
+  fontFamily: MONO,
+  fontVariantNumeric: 'tabular-nums',
+} as const;
+
+const accentSoftHex = 'rgba(31,197,200,0.14)';
+
+// --- Tipografía: IBM Plex Sans, conservando la escala MD3 (nombres usados por componentes) ---
+const typography: ThemeOptions['typography'] = {
+  fontFamily: SANS,
+  button: { textTransform: 'none' as const, fontWeight: 500 },
+  displayLarge:  { fontFamily: SANS, fontSize: '57px', lineHeight: '64px', fontWeight: 600, letterSpacing: '-0.25px' },
+  displayMedium: { fontFamily: SANS, fontSize: '45px', lineHeight: '52px', fontWeight: 600 },
+  displaySmall:  { fontFamily: SANS, fontSize: '36px', lineHeight: '44px', fontWeight: 600 },
+  headlineLarge: { fontFamily: SANS, fontSize: '32px', lineHeight: '40px', fontWeight: 600 },
+  headlineMedium:{ fontFamily: SANS, fontSize: '28px', lineHeight: '36px', fontWeight: 600 },
+  headlineSmall: { fontFamily: SANS, fontSize: '24px', lineHeight: '32px', fontWeight: 600 },
+  titleLarge:    { fontFamily: SANS, fontSize: '22px', lineHeight: '28px', fontWeight: 600 },
+  titleMedium:   { fontFamily: SANS, fontSize: '16px', lineHeight: '24px', fontWeight: 600, letterSpacing: '0.15px' },
+  titleSmall:    { fontFamily: SANS, fontSize: '14px', lineHeight: '20px', fontWeight: 600, letterSpacing: '0.1px' },
+  labelLarge:    { fontFamily: SANS, fontSize: '14px', lineHeight: '20px', fontWeight: 500, letterSpacing: '0.1px' },
+  labelMedium:   { fontFamily: SANS, fontSize: '12px', lineHeight: '16px', fontWeight: 500, letterSpacing: '0.5px' },
+  labelSmall:    { fontFamily: SANS, fontSize: '11px', lineHeight: '16px', fontWeight: 500, letterSpacing: '0.5px' },
+  bodyLarge:     { fontFamily: SANS, fontSize: '16px', lineHeight: '24px', fontWeight: 400, letterSpacing: '0.15px' },
+  bodyMedium:    { fontFamily: SANS, fontSize: '14px', lineHeight: '20px', fontWeight: 400, letterSpacing: '0.25px' },
+  bodySmall:     { fontFamily: SANS, fontSize: '12px', lineHeight: '16px', fontWeight: 400, letterSpacing: '0.4px' },
 };
 
-// Material Design 3 Theme
-export const md3Theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: md3Colors.primary[40],
-      light: md3Colors.primary[80],
-      dark: md3Colors.primary[20],
-      contrastText: md3Colors.primary[100],
-    },
-    secondary: {
-      main: md3Colors.secondary[40],
-      light: md3Colors.secondary[80],
-      dark: md3Colors.secondary[20],
-      contrastText: md3Colors.secondary[100],
-    },
-    tertiary: {
-      main: md3Colors.tertiary[40],
-      light: md3Colors.tertiary[80],
-      dark: md3Colors.tertiary[20],
-      contrastText: md3Colors.tertiary[100],
-    },
-    error: {
-      main: md3Colors.error[40],
-      light: md3Colors.error[80],
-      dark: md3Colors.error[20],
-      contrastText: md3Colors.error[100],
-    },
-    background: {
-      default: md3Colors.neutral[99],
-      paper: md3Colors.neutral[100],
-    },
-    surface: {
-      main: md3Colors.neutral[98],
-      light: md3Colors.neutral[96],
-      dark: md3Colors.neutral[94],
-    },
-    outline: {
-      main: md3Colors.neutral[50],
-      variant: md3Colors.neutral[80],
+const buildPalette = (t: Tokens, mode: 'dark' | 'light'): ThemeOptions['palette'] => ({
+  mode,
+  primary:   { main: ACCENT_HEX, light: '#4fd6d8', dark: ACCENT_DARK_HEX, contrastText: '#06262a' },
+  secondary: { main: t.textMid, contrastText: t.text },
+  success:   { main: OK_HEX, contrastText: '#04140d' },
+  error:     { main: '#ff5449', light: '#ff897d', dark: '#9c2b1e', contrastText: '#ffffff' },
+  background:{ default: t.bg, paper: t.surface },
+  divider:   t.border,
+  text:      { primary: t.text, secondary: t.textMid, tertiary: t.textDim, disabled: t.textDim },
+  // Claves custom (augmentación en theme-types.ts) — mapeadas a los tokens.
+  surface:   { main: t.surface, light: t.surface2, dark: t.surface3, contrastText: t.text },
+  tertiary:  { main: ACCENT_HEX, light: '#4fd6d8', dark: ACCENT_DARK_HEX, contrastText: '#06262a' },
+  outline:   { main: t.border, variant: t.borderStr },
+});
+
+const buildComponents = (t: Tokens): ThemeOptions['components'] => ({
+  MuiCssBaseline: {
+    styleOverrides: {
+      body: { backgroundColor: t.bg, color: t.text },
     },
   },
-  typography: {
-    fontFamily: '"Montserrat", "Helvetica", "Arial", sans-serif',
-    // Material Design 3 Type Scale
-    // Títulos de página usan Bricolage Grotesque
-    displayLarge: {
-      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
-      fontSize: '57px',
-      lineHeight: '64px',
-      fontWeight: 600,
-      letterSpacing: '-0.25px',
-    },
-    displayMedium: {
-      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
-      fontSize: '45px',
-      lineHeight: '52px',
-      fontWeight: 600,
-      letterSpacing: '0px',
-    },
-    displaySmall: {
-      fontFamily: '"Bricolage Grotesque", "Montserrat", sans-serif',
-      fontSize: '36px',
-      lineHeight: '44px',
-      fontWeight: 600,
-      letterSpacing: '0px',
-    },
-    headlineLarge: {
-      fontSize: '32px',
-      lineHeight: '40px',
-      fontWeight: 400,
-      letterSpacing: '0px',
-    },
-    headlineMedium: {
-      fontSize: '28px',
-      lineHeight: '36px',
-      fontWeight: 400,
-      letterSpacing: '0px',
-    },
-    headlineSmall: {
-      fontSize: '24px',
-      lineHeight: '32px',
-      fontWeight: 400,
-      letterSpacing: '0px',
-    },
-    titleLarge: {
-      fontSize: '22px',
-      lineHeight: '28px',
-      fontWeight: 400,
-      letterSpacing: '0px',
-    },
-    titleMedium: {
-      fontSize: '16px',
-      lineHeight: '24px',
-      fontWeight: 500,
-      letterSpacing: '0.15px',
-    },
-    titleSmall: {
-      fontSize: '14px',
-      lineHeight: '20px',
-      fontWeight: 500,
-      letterSpacing: '0.1px',
-    },
-    labelLarge: {
-      fontSize: '14px',
-      lineHeight: '20px',
-      fontWeight: 500,
-      letterSpacing: '0.1px',
-    },
-    labelMedium: {
-      fontSize: '12px',
-      lineHeight: '16px',
-      fontWeight: 500,
-      letterSpacing: '0.5px',
-    },
-    labelSmall: {
-      fontSize: '11px',
-      lineHeight: '16px',
-      fontWeight: 500,
-      letterSpacing: '0.5px',
-    },
-    bodyLarge: {
-      fontSize: '16px',
-      lineHeight: '24px',
-      fontWeight: 400,
-      letterSpacing: '0.15px',
-    },
-    bodyMedium: {
-      fontSize: '14px',
-      lineHeight: '20px',
-      fontWeight: 400,
-      letterSpacing: '0.25px',
-    },
-    bodySmall: {
-      fontSize: '12px',
-      lineHeight: '16px',
-      fontWeight: 400,
-      letterSpacing: '0.4px',
+  MuiAppBar: {
+    defaultProps: { elevation: 0, color: 'default' },
+    styleOverrides: {
+      root: {
+        minHeight: 48,
+        height: 48,
+        backgroundColor: t.surface,
+        backgroundImage: 'none',
+        color: t.text,
+        boxShadow: 'none',
+        borderBottom: `1px solid ${t.border}`,
+        borderRadius: 0,
+      },
     },
   },
-  shape: {
-    borderRadius: 12, // MD3 uses more rounded corners
+  MuiToolbar: {
+    styleOverrides: {
+      root: { minHeight: '48px !important', height: 48, paddingLeft: 12, paddingRight: 12 },
+    },
   },
-  spacing: 8, // 8px base unit
-  components: {
-    // Material Design 3 Component Customizations
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: '20px', // Pill-shaped buttons
-          textTransform: 'none', // No uppercase
-          fontWeight: 500,
-          paddingX: 24,
-          paddingY: 10,
-        },
-        contained: {
-          boxShadow: 'none', // MD3 uses elevation tokens instead
-          '&:hover': {
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-          },
-        },
-        outlined: {
-          borderWidth: '1px',
-          '&:hover': {
-            borderWidth: '1px',
-          },
-        },
+  MuiButton: {
+    defaultProps: { disableElevation: true },
+    styleOverrides: {
+      root: { borderRadius: 6, textTransform: 'none', fontWeight: 500, boxShadow: 'none' },
+      contained: { boxShadow: 'none', '&:hover': { boxShadow: 'none' } },
+      outlined: {
+        borderColor: t.borderStr,
+        '&:hover': { borderColor: t.text, backgroundColor: 'rgba(255,255,255,0.04)' },
       },
     },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-        },
+  },
+  MuiCard: {
+    styleOverrides: {
+      root: { borderRadius: 8, boxShadow: 'none', border: `1px solid ${t.border}`, backgroundImage: 'none' },
+    },
+  },
+  MuiPaper: {
+    styleOverrides: {
+      root: { borderRadius: 8, backgroundImage: 'none', border: `1px solid ${t.border}` },
+    },
+  },
+  MuiSlider: {
+    styleOverrides: {
+      root: { color: ACCENT_HEX, height: 2, padding: '12px 0' },
+      rail: { height: 2, opacity: 1, backgroundColor: t.borderStr },
+      track: { height: 2, border: 'none' },
+      thumb: {
+        width: 8,
+        height: 8,
+        backgroundColor: ACCENT_HEX,
+        '&:hover, &.Mui-focusVisible': { boxShadow: `0 0 0 6px ${accentSoftHex}` },
+        '&:before': { boxShadow: 'none' },
+      },
+      mark: { width: 1, height: 4, backgroundColor: t.borderStr, opacity: 1 },
+      markActive: { backgroundColor: ACCENT_HEX, opacity: 1 },
+      markLabel: { fontFamily: MONO, fontSize: 9, color: t.textDim },
+      valueLabel: { backgroundColor: t.surface3, color: t.text, fontFamily: MONO, fontSize: 10, borderRadius: 4 },
+    },
+  },
+  MuiOutlinedInput: {
+    styleOverrides: {
+      root: {
+        borderRadius: 6,
+        backgroundColor: t.surface2,
+        '& .MuiOutlinedInput-notchedOutline': { borderColor: t.border },
+        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: t.borderStr },
+        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: ACCENT_HEX, borderWidth: 1 },
+      },
+      input: { fontSize: 13 },
+    },
+  },
+  MuiInputLabel: {
+    styleOverrides: {
+      root: { color: t.textMid, '&.Mui-focused': { color: ACCENT_HEX } },
+    },
+  },
+  MuiSelect: {
+    styleOverrides: {
+      icon: { color: t.textMid },
+    },
+  },
+  MuiMenu: {
+    styleOverrides: {
+      paper: { borderRadius: 8, backgroundColor: t.surface2, backgroundImage: 'none' },
+    },
+  },
+  MuiChip: {
+    styleOverrides: {
+      root: { borderRadius: 4, border: `1px solid ${t.borderStr}`, backgroundColor: 'transparent' },
+      filled: { backgroundColor: 'transparent' },
+      label: { fontFamily: MONO, fontSize: 11 },
+    },
+  },
+  MuiTooltip: {
+    styleOverrides: {
+      tooltip: {
+        backgroundColor: t.surface3,
+        border: `1px solid ${t.border}`,
+        borderRadius: 6,
+        fontSize: 11,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.32)',
       },
     },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: '12px',
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: '12px',
-          },
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          borderRadius: '8px',
-        },
-      },
-    },
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          boxShadow: 'none',
-          borderBottom: `1px solid ${md3Colors.neutral[90]}`,
-          borderRadius: 0,
-        },
+  },
+  MuiSwitch: {
+    styleOverrides: {
+      switchBase: {
+        '&.Mui-checked': { color: ACCENT_HEX },
+        '&.Mui-checked + .MuiSwitch-track': { backgroundColor: ACCENT_HEX },
       },
     },
   },
 });
 
-// Dark theme variant
-export const md3DarkTheme = createTheme({
-  ...md3Theme,
-  palette: {
-    ...md3Theme.palette,
-    mode: 'dark',
-    primary: {
-      main: md3Colors.primary[80],
-      light: md3Colors.primary[60],
-      dark: md3Colors.primary[90],
-      contrastText: md3Colors.primary[10],
-    },
-    secondary: {
-      main: md3Colors.secondary[80],
-      light: md3Colors.secondary[60],
-      dark: md3Colors.secondary[90],
-      contrastText: md3Colors.secondary[10],
-    },
-    background: {
-      default: md3Colors.neutral[10],
-      paper: md3Colors.neutral[20],
-    },
-    surface: {
-      main: md3Colors.neutral[12],
-      light: md3Colors.neutral[17],
-      dark: md3Colors.neutral[6],
-    },
-  },
-});
+const makeTheme = (t: Tokens, mode: 'dark' | 'light') =>
+  createTheme({
+    palette: buildPalette(t, mode),
+    typography,
+    shape: { borderRadius: 8 },
+    spacing: 8,
+    components: buildComponents(t),
+  });
 
-export default md3Theme;
+export const darkTheme = makeTheme(darkTokens, 'dark');
+export const lightTheme = makeTheme(lightTokens, 'light');
+
+// dark = por defecto
+export default darkTheme;
