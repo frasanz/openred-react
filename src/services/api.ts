@@ -414,9 +414,11 @@ class ApiService {
     if (data.project != null) {
       formData.append('project', String(data.project));
     }
-    // Axios elimina el Content-Type por defecto cuando el body es FormData y deja que el navegador
-    // ponga el boundary del multipart.
+    // La instancia lleva Content-Type application/json por defecto y con ese header axios 1.x
+    // serializa el FormData a JSON (el fichero se pierde y el backend responde "No file provided").
+    // Con multipart/form-data explícito axios deja que el navegador ponga el boundary.
     const response: AxiosResponse<TrackUploadResponse> = await this.api.post('/api/tracks/upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
       signal,
     });
     return response.data;
