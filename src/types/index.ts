@@ -212,7 +212,7 @@ export interface Track {
 // Datos para POST /api/tracks/upload/ (multipart/form-data)
 export interface TrackUploadData {
   file: File; // .rctrk, export de RadiaCode Android o iOS
-  device: number;
+  device?: number; // opcional; si no se envía el backend lo guarda como null
   mission: number;
   campaign: number; // debe pertenecer a la misión
   campaign_password?: string; // solo si la campaña tiene has_password

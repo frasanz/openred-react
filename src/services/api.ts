@@ -405,7 +405,9 @@ class ApiService {
   async uploadTrack(data: TrackUploadData, signal?: AbortSignal): Promise<TrackUploadResponse> {
     const formData = new FormData();
     formData.append('file', data.file);
-    formData.append('device', String(data.device));
+    if (data.device != null) {
+      formData.append('device', String(data.device));
+    }
     formData.append('mission', String(data.mission));
     formData.append('campaign', String(data.campaign));
     if (data.campaign_password) {

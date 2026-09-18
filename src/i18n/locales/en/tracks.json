@@ -60,9 +60,9 @@
     "campaignPasswordHelper": "This campaign requires a password",
     "missionRequired": "Mission",
     "campaignRequired": "Campaign",
-    "device": "Device",
+    "device": "Device (optional)",
     "deviceLoading": "Loading devices...",
-    "noDevices": "You have no registered devices. Create one on the devices page before uploading a track.",
+    "noDevices": "You have no registered devices; the track will be uploaded without a device. You can create one at",
     "selectMissionFirst": "Select a mission first"
   },
   "delete": {
@@ -78,7 +78,6 @@
     "selectProject": "Please select a project first",
     "saveTrack": "Error saving the track",
     "deleteTrack": "Error deleting the track",
-    "selectDevice": "Select a device",
     "selectMission": "Select a mission",
     "selectCampaign": "Select a campaign",
     "fileTooLarge": "The file exceeds the 10 MB limit",

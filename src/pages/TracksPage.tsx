@@ -515,13 +515,9 @@ const TracksPage: React.FC = () => {
       return;
     }
 
-    // Subida de un .rctrk: file, device, mission y campaign son obligatorios en el backend
+    // Subida de un .rctrk: file, mission y campaign son obligatorios; device es opcional (null si no hay)
     if (!selectedFile) {
       setDialogError(t('errors.selectFile'));
-      return;
-    }
-    if (!formData.device) {
-      setDialogError(t('errors.selectDevice'));
       return;
     }
     if (!formData.mission) {
@@ -637,9 +633,9 @@ const TracksPage: React.FC = () => {
       return formData.name.trim() !== '';
     }
     
-    // Para subir un track: fichero, dispositivo, misión y campaña son obligatorios
+    // Para subir un track: fichero, misión y campaña son obligatorios; el dispositivo es opcional
     if (uploadPhase !== 'idle') return false;
-    if (!selectedFile || !formData.device || !formData.mission || !formData.campaign) return false;
+    if (!selectedFile || !formData.mission || !formData.campaign) return false;
     
     // Si la campaña tiene has_password=true, la contraseña es obligatoria
     const selectedCampaign = campaigns.find(c => c.id === formData.campaign);
@@ -1241,7 +1237,7 @@ const TracksPage: React.FC = () => {
                   </Alert>
                 )}
 
-                <FormControl fullWidth required disabled={loadingDevices || uploadPhase !== 'idle'}>
+                <FormControl fullWidth disabled={loadingDevices || uploadPhase !== 'idle'}>
                   <InputLabel id="device-select-label">
                     {loadingDevices ? t('fields.deviceLoading') : t('fields.device')}
                   </InputLabel>
@@ -1254,6 +1250,9 @@ const TracksPage: React.FC = () => {
                     })}
                     label={loadingDevices ? t('fields.deviceLoading') : t('fields.device')}
                   >
+                    <MenuItem value="">
+                      <em>{t('fields.none')}</em>
+                    </MenuItem>
                     {devices.map((device) => (
                       <MenuItem key={device.id} value={device.id}>
                         {deviceLabel(device)}
@@ -1262,7 +1261,7 @@ const TracksPage: React.FC = () => {
                   </Select>
                 </FormControl>
                 {!loadingDevices && devices.length === 0 && (
-                  <Alert severity="warning" sx={{ mt: -1 }}>
+                  <Alert severity="info" sx={{ mt: -1 }}>
                     {t('fields.noDevices')}{' '}
                     <RouterLink to="/devices" style={{ color: 'inherit' }}>
                       {t('common:nav.myDevices')}
