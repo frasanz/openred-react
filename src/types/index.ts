@@ -308,6 +308,19 @@ export interface LightPollutionMeasurement extends BaseMeasurement {
 // Union type for all measurement types
 export type Measurement = RadiationMeasurement | LightPollutionMeasurement;
 
+// Punto ligero para pintar (GET .../compact/): solo lo necesario para el mapa.
+// El resto de la medida se pide al hacer hover (GET .../{id}/).
+// Mismos nombres que en Measurement para que los accesores sirvan para ambos.
+export interface MapPoint {
+  id: number;
+  latitude: number;
+  longitude: number;
+  dose_rate?: number | null; // radiación
+  lux?: number | null;       // lumínica
+  cct?: number | null;       // lumínica
+  speed?: number | null;     // m/s (solo tracks)
+}
+
 // Espectros de radiación
 // Marcador ligero para el mapa (GET /api/radiation-spectra/map/) — array plano, sin counts.
 // latitude/longitude = coordenadas de inicio del espectro (solo los que tienen fix GPS).

@@ -1,4 +1,4 @@
-import { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { BaseMeasurement } from '../../types';
 
 export interface MeasurementFilter {
@@ -38,11 +38,13 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
   protected abstract getCountEndpoint(): string;
   protected abstract getPaginatedEndpoint(): string;
 
-  async getMeasurements(params?: MeasurementFilter): Promise<T[]> {
+  async getMeasurements(params?: MeasurementFilter, signal?: AbortSignal): Promise<T[]> {
     try {
-      const response = await this.api.get(this.getBaseEndpoint(), { params });
-      console.log(`API Response from ${this.getBaseEndpoint()}:`, response.data);
-      
+      const response = await this.api.get(this.getBaseEndpoint(), { params, signal });
+      // Solo el tamaño: volcar decenas de miles de objetos a la consola es caro
+      const count = Array.isArray(response.data) ? response.data.length : response.data?.results?.length;
+      console.log(`API Response from ${this.getBaseEndpoint()}: ${count ?? '?'} items`);
+
       if (Array.isArray(response.data)) {
         return response.data;
       } else if (response.data.results && Array.isArray(response.data.results)) {
@@ -52,9 +54,50 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
         return [];
       }
     } catch (error) {
-      console.error(`Error fetching measurements from ${this.getBaseEndpoint()}:`, error);
+      // Cancelada porque empezó otra carga: no es un fallo
+      if (!axios.isCancel(error)) {
+        console.error(`Error fetching measurements from ${this.getBaseEndpoint()}:`, error);
+      }
       throw error;
     }
+  }
+
+  /**
+   * Lectura compacta (GET .../compact/): solo las columnas pedidas, como arrays.
+   * Devuelve cada fila como objeto con los nombres del modelo (lat -> latitude, lon -> longitude).
+   */
+  async getCompact(
+    params: MeasurementFilter & { [key: string]: any },
+    fields: string[],
+    options: { ordering?: 'dateTime' | '-dateTime'; limit?: number; signal?: AbortSignal } = {}
+  ): Promise<{ rows: Record<string, any>[]; truncated: boolean }> {
+    const endpoint = this.getBaseEndpoint().replace(/\/$/, '') + '/compact/';
+    const response = await this.api.get(endpoint, {
+      params: {
+        ...params,
+        fields: fields.join(','),
+        ...(options.ordering && { ordering: options.ordering }),
+        ...(options.limit && { limit: options.limit }),
+      },
+      signal: options.signal,
+    });
+
+    const keys: string[] = response.data.fields.map((f: string) =>
+      f === 'lat' ? 'latitude' : f === 'lon' ? 'longitude' : f
+    );
+    const rows = (response.data.rows as any[][]).map(row => {
+      const obj: Record<string, any> = {};
+      for (let i = 0; i < keys.length; i++) obj[keys[i]] = row[i];
+      return obj;
+    });
+    console.log(`Compact response from ${endpoint}: ${rows.length} rows${response.data.truncated ? ' (truncated)' : ''}`);
+    return { rows, truncated: !!response.data.truncated };
+  }
+
+  // Medida completa (con weather_cache), para el detalle al hacer hover
+  async getMeasurement(id: number, signal?: AbortSignal): Promise<T> {
+    const response = await this.api.get(`${this.getBaseEndpoint()}${id}/`, { signal });
+    return response.data;
   }
 
   async getMeasurementsCount(projectId?: number): Promise<number> {
@@ -271,7 +314,7 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
     mission?: number;
     campaign?: number;
     [key: string]: any;
-  }): Promise<{ 
+  }, signal?: AbortSignal): Promise<{
     hexagons: any[], 
     resolution?: number, 
     totalMeasurements?: number,
@@ -284,7 +327,7 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
   }> {
     try {
       const endpoint = this.getBaseEndpoint().replace(/\/$/, '') + '/h3-aggregation/';
-      const response = await this.api.get(endpoint, { params });
+      const response = await this.api.get(endpoint, { params, signal });
       console.log(`H3 Aggregation Vertex response from ${endpoint}:`, response.data);
       
       if (Array.isArray(response.data)) {
@@ -302,7 +345,9 @@ export abstract class BaseMeasurementService<T extends BaseMeasurement> {
       }
       return { hexagons: [] };
     } catch (error) {
-      console.error(`Error fetching H3 aggregation from ${this.getBaseEndpoint()}:`, error);
+      if (!axios.isCancel(error)) {
+        console.error(`Error fetching H3 aggregation from ${this.getBaseEndpoint()}:`, error);
+      }
       throw error;
     }
   }

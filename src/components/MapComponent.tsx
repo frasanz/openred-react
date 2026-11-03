@@ -3,7 +3,7 @@ import DeckGL from '@deck.gl/react';
 import { H3HexagonLayer } from '@deck.gl/geo-layers';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import { Map, Source, Layer } from 'react-map-gl';
-import { WebMercatorViewport } from '@deck.gl/core';
+import { WebMercatorViewport, LinearInterpolator } from '@deck.gl/core';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '../utils/i18nFormat';
 import './MapComponent.css';
@@ -23,10 +23,11 @@ import {
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { Measurement, Campaign, Project, AdaptiveFilters, CommonFilters, RadiationFilters, RadiationSpectrumMarker, PublicStation } from '../types';
+import { MapPoint, Campaign, Project, AdaptiveFilters, CommonFilters, RadiationFilters, RadiationSpectrumMarker, PublicStation } from '../types';
 import { HistogramFetchParams } from '../hooks/useMeasurementsByZoom';
 import { useSpectraMarkers } from '../hooks/useSpectraMarkers';
 import { useStationMarkers } from '../hooks/useStationMarkers';
+import { useMeasurementDetail } from '../hooks/useMeasurementDetail';
 import SpectrumDialog from './SpectrumDialog';
 import StationDialog from './StationDialog';
 import { darkTokens as T } from '../theme/tokens';
@@ -62,6 +63,39 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
+// Modo de vista 2D (cenital, hexágonos planos) / 3D (inclinada, hexágonos extruidos).
+// Se recuerda por navegador; por defecto 3D.
+type ViewMode = '2d' | '3d';
+const VIEW_MODE_STORAGE_KEY = 'openred_map_view_mode';
+const VIEW_MODE_PITCH: Record<ViewMode, number> = { '2d': 0, '3d': INITIAL_VIEW_STATE.pitch };
+const VIEW_MODE_TRANSITION_MS = 600;
+
+const readStoredViewMode = (): ViewMode => {
+  try {
+    return localStorage.getItem(VIEW_MODE_STORAGE_KEY) === '2d' ? '2d' : '3d';
+  } catch {
+    return '3d';
+  }
+};
+
+// Selector segmentado compacto (2D/3D, iluminación/CCT)
+const segmentedToggleSx = {
+  '& .MuiToggleButton-root': {
+    fontFamily: MONO,
+    fontSize: 9,
+    letterSpacing: '0.5px',
+    color: T.textDim,
+    border: `1px solid ${T.hairline}`,
+    px: 1,
+    py: 0.25,
+    textTransform: 'uppercase',
+    '&.Mui-selected': {
+      color: T.text,
+      backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+  },
+};
+
 // Estado de estación → kind de StatusDot (mismos colores que el resto de la app).
 const stationStatusKind = (status?: string): 'ok' | 'danger' | 'info' => {
   if (status === 'online') return 'ok';
@@ -71,7 +105,7 @@ const stationStatusKind = (status?: string): 'ok' | 'danger' | 'info' => {
 
 
 interface HoveredObject {
-  measurement?: Measurement;
+  measurement?: MapPoint;
   hexagon?: {
     points: Array<{ radiation: number }>;
     [key: string]: any;
@@ -92,7 +126,8 @@ interface HoverInfo {
 }
 
 interface MapComponentProps {
-  measurements: Measurement[];
+  measurements: MapPoint[];
+  pointsTruncated?: boolean;
   campaigns: Campaign[];
   loading?: boolean;
   selectedProject?: Project | null;
@@ -271,6 +306,7 @@ const computeScale = (
 
 const MapComponent: React.FC<MapComponentProps> = ({
   measurements,
+  pointsTruncated = false,
   campaigns,
   loading = false,
   selectedProject = null,
@@ -352,20 +388,54 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // Cámara NO controlada (initialViewState) para que el zoom con rueda vaya 100% suave.
   // viewState solo se usa para refrescar los overlays (coordinate readout / scale bar);
   // NO se le pasa a deck.gl, así sus re-renders no tocan la cámara.
-  const [viewState, setViewState] = useState<any>(INITIAL_VIEW_STATE);
+  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const is3D = viewMode === '3d';
 
-  // Controller estable (objeto memoizado) para no reinicializar la interacción en cada render.
+  // Vista que se le da a deck.gl. Solo cambia al alternar 2D/3D: deck.gl resetea la cámara
+  // cuando cambia initialViewState, y el resto del tiempo la cámara sigue sin controlar.
+  const [cameraTarget, setCameraTarget] = useState<any>(() => ({
+    ...INITIAL_VIEW_STATE,
+    pitch: VIEW_MODE_PITCH[readStoredViewMode()],
+  }));
+  const [viewState, setViewState] = useState<any>(cameraTarget);
+
+  // true entre el cambio de initialViewState y la primera notificación de deck.gl
+  const cameraResetPendingRef = React.useRef(false);
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    cameraResetPendingRef.current = true;
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Sin almacenamiento: el modo vale solo para esta sesión
+    }
+    // Misma posición y zoom; solo cambian inclinación y rotación, con transición
+    setCameraTarget({
+      longitude: viewState.longitude,
+      latitude: viewState.latitude,
+      zoom: viewState.zoom,
+      pitch: VIEW_MODE_PITCH[mode],
+      bearing: 0,
+      transitionDuration: VIEW_MODE_TRANSITION_MS,
+      transitionInterpolator: new LinearInterpolator(['pitch', 'bearing']),
+    });
+  }, [viewState.longitude, viewState.latitude, viewState.zoom]);
+
+  // Controller memoizado para no reinicializar la interacción en cada render.
+  // En 2D no se puede rotar ni inclinar: el arrastre con botón derecho o dos dedos
+  // volvería a inclinar la cámara.
   const deckController = useMemo(
     () => ({
       dragPan: true,
-      dragRotate: true,
+      dragRotate: is3D,
       scrollZoom: true,
       touchZoom: true,
-      touchRotate: true,
+      touchRotate: is3D,
       keyboard: true,
       doubleClickZoom: true,
     }),
-    []
+    [is3D]
   );
 
   const isRadiation = selectedProject?.project_type === 'radiation';
@@ -388,25 +458,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // Ya no necesitamos filtrar mediciones, usamos solo H3
   const filteredMeasurements = measurements;
 
-  // Función para obtener el valor de medición independientemente del tipo
-  const getMeasurementValue = useCallback((measurement: Measurement): number => {
-    if ('dose_rate' in measurement) {
-      return measurement.dose_rate;
-    } else if ('sky_brightness' in measurement) {
-      return measurement.sky_brightness;
-    }
-    return 0; // Fallback
-  }, []);
-
-  // Función para obtener la unidad de medición
-  const getMeasurementUnit = useCallback((measurement: Measurement): string => {
-    if ('radiation_unit' in measurement) {
-      return measurement.radiation_unit;
-    } else if ('brightness_unit' in measurement) {
-      return measurement.brightness_unit;
-    }
-    return '';
-  }, []);
 
 
   // Crear capas: H3 hexágonos o puntos individuales según zoom (+ espectros opcionales)
@@ -429,7 +480,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
           pickable: true,
           wireframe: false,
           filled: true,
-          extruded: true,
+          // En 2D, hexágonos planos: solo cuenta el color
+          extruded: is3D,
           elevationScale: elevationScale,
           getHexagon: (d: any) => d.h3_index,
           getFillColor: (d: any) => {
@@ -483,29 +535,25 @@ const MapComponent: React.FC<MapComponentProps> = ({
           radiusMinPixels: 6,
           radiusMaxPixels: 6,
           lineWidthMinPixels: 0,
-          getPosition: (d: Measurement) => {
-            const lng = typeof d.longitude === 'number' ? d.longitude : parseFloat(d.longitude as string);
-            const lat = typeof d.latitude === 'number' ? d.latitude : parseFloat(d.latitude as string);
-            return [lng, lat];
-          },
+          getPosition: (d: MapPoint) => [d.longitude, d.latitude],
           getRadius: 6,
-          getFillColor: (d: Measurement) => {
+          getFillColor: (d: MapPoint) => {
             // Usar color según el tipo de proyecto
             if (selectedProject?.project_type === 'light_pollution') {
               if (lightPollutionColorMode === 'cct') {
-                if ('cct' in d && d.cct != null) {
-                  const color = getCCTColor(d.cct as number);
+                if (d.cct != null) {
+                  const color = getCCTColor(d.cct);
                   return [color[0], color[1], color[2], 200];
                 }
                 return [120, 120, 120, 200]; // gris si no hay CCT
               }
-              if ('lux' in d && d.lux !== undefined) {
-                const color = getLightPollutionColor(d.lux as number);
+              if (d.lux != null) {
+                const color = getLightPollutionColor(d.lux);
                 return [color[0], color[1], color[2], 200];
               }
-            } else if ('dose_rate' in d && d.dose_rate !== undefined) {
+            } else if (d.dose_rate != null) {
               // Para radiación, usar dose_rate
-              const color = getRadiationColor(d.dose_rate as number);
+              const color = getRadiationColor(d.dose_rate);
               return [color[0], color[1], color[2], 200];
             }
             // Color por defecto (naranja)
@@ -572,7 +620,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
 
     return result;
-  }, [isUsingH3, h3Data, measurements, zoomLevel, selectedProject, showSpectra, spectra, lightPollutionColorMode]);
+  }, [isUsingH3, h3Data, measurements, zoomLevel, selectedProject, showSpectra, spectra, lightPollutionColorMode, is3D]);
 
   // Posición en pantalla (px) de cada estación, recalculada con cada cambio de cámara.
   // Los marcadores de estación se pintan como overlay DOM propio (no <Marker> de
@@ -595,12 +643,74 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [showStations, isRadiation, stations, viewState]);
 
+  // Refresca overlays, zoom y bounds a partir de la cámara de deck.gl
+  const applyViewState = (newViewState: any) => {
+    // Solo refrescar overlays (no se realimenta a deck: cámara no controlada)
+    setViewState(newViewState);
+
+    // Actualizar ref sin disparar re-render
+    zoomRef.current = newViewState.zoom;
+
+    // Actualizar zoomLevel solo al cruzar un nivel entero (para elevationScale)
+    const rounded = Math.round(newViewState.zoom);
+    if (rounded !== zoomLevel) {
+      setZoomLevel(rounded);
+    }
+
+    // Calcular bounds para cualquier cambio de viewport
+    try {
+      const viewport = new WebMercatorViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        ...newViewState
+      });
+      
+      const nw = viewport.unproject([0, 0]);
+      const se = viewport.unproject([viewport.width, viewport.height]);
+      
+      const bounds = {
+        north: nw[1],
+        south: se[1],
+        west: nw[0],
+        east: se[0]
+      };
+      
+      // Notificar cambios de nivel de zoom con umbral para evitar oscilaciones
+      if (onZoomChange) {
+        const currentZoomLevel = Math.round(newViewState.zoom);
+        const zoomDiff = Math.abs(newViewState.zoom - lastNotifiedZoomLevel.current);
+        
+        // Solo notificar si cambió el nivel Y la diferencia es >= 0.4
+        if (currentZoomLevel !== lastNotifiedZoomLevel.current && zoomDiff >= 0.4) {
+          console.log(`Zoom level changed: ${lastNotifiedZoomLevel.current} → ${currentZoomLevel}`);
+          lastNotifiedZoomLevel.current = currentZoomLevel;
+          onZoomChange(currentZoomLevel, bounds);
+        }
+      }
+      
+      // Notificar cambios de viewport (pan/drag) para caché inteligente
+      if (onViewportChange) {
+        onViewportChange(bounds);
+      }
+    } catch (error) {
+      console.error('Error calculating bounds:', error);
+    }
+  };
+
+  // Detalle de la medida bajo el cursor: los puntos solo traen coordenadas y valor
+  const { detail: hoverDetail, loading: hoverDetailLoading } = useMeasurementDetail(
+    hoveredObject?.measurement?.id,
+    selectedProject?.project_type === 'light_pollution' ? 'light_pollution' : 'radiation'
+  );
+
   // Renderizar tooltip memoizado
   const renderTooltip = useCallback(() => {
     if (!hoveredObject || !hoverInfo) return null;
 
     const { x, y } = hoverInfo;
     const m = hoveredObject.measurement;
+    // Detalle solo si es el del punto actual (evita mostrar el del anterior un instante)
+    const d = hoverDetail && m && hoverDetail.id === m.id ? hoverDetail : null;
     const hex = hoveredObject.hexagon;
     const sg = hoveredObject.screenGrid;
     const sp = hoveredObject.spectrum;
@@ -614,69 +724,74 @@ const MapComponent: React.FC<MapComponentProps> = ({
             <Box sx={tipHeaderSx}>{t('tooltip.measurement')}</Box>
             <Box sx={tipBodySx}>
               {isLP ? (
-                'lux' in m && m.lux != null ? (
-                  <TipHeadline value={m.lux.toFixed(4)} unit="lux" />
-                ) : null
-              ) : 'dose_rate' in m && m.dose_rate !== undefined ? (
+                m.lux != null ? <TipHeadline value={m.lux.toFixed(4)} unit="lux" /> : null
+              ) : m.dose_rate != null ? (
                 <TipHeadline value={m.dose_rate.toFixed(2)} unit="µSv/h" />
-              ) : (
-                <TipHeadline value={getMeasurementValue(m).toFixed(2)} unit={getMeasurementUnit(m)} />
-              )}
+              ) : null}
 
-              {isLP && 'cct' in m && m.cct != null && (
+              {isLP && m.cct != null && (
                 <TipRow label={t('tooltip.cct')} value={`${Math.round(m.cct)} K`} />
               )}
-              {isLP && 'brightness' in m && m.brightness != null && (
-                <TipRow label={t('tooltip.brightness')} value={m.brightness.toFixed(2)} />
+              {d && 'brightness' in d && d.brightness != null && (
+                <TipRow label={t('tooltip.brightness')} value={d.brightness.toFixed(2)} />
               )}
-              {!isLP && (('cpm' in m && m.cpm != null) || ('count_rate' in m && m.count_rate != null)) && (
+              {d && (('cpm' in d && d.cpm != null) || ('count_rate' in d && d.count_rate != null)) && (
                 <TipRow
                   label={t('tooltip.countRate')}
-                  value={`${(('cpm' in m && m.cpm != null ? m.cpm : (m as { count_rate?: number }).count_rate)!).toFixed(2)} CPM`}
+                  value={`${(('cpm' in d && d.cpm != null ? d.cpm : (d as { count_rate?: number }).count_rate)!).toFixed(2)} CPM`}
                 />
               )}
-              {'speed' in m && m.speed != null && (
-                <TipRow label={t('tooltip.speed')} value={`${(m.speed * 3.6).toFixed(1)} km/h`} />
+              {d?.speed != null && (
+                <TipRow label={t('tooltip.speed')} value={`${(d.speed * 3.6).toFixed(1)} km/h`} />
               )}
-              <TipRow label={t('tooltip.latitude')} value={Number(m.latitude).toFixed(6)} />
-              <TipRow label={t('tooltip.longitude')} value={Number(m.longitude).toFixed(6)} />
-              {m.altitude && <TipRow label={t('tooltip.altitude')} value={`${Math.round(m.altitude)} m`} />}
-              <TipRow
-                label={t('tooltip.date')}
-                value={formatDateTime(new Date(m.dateTime), {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false,
-                })}
-              />
+              <TipRow label={t('tooltip.latitude')} value={m.latitude.toFixed(6)} />
+              <TipRow label={t('tooltip.longitude')} value={m.longitude.toFixed(6)} />
+              {d?.altitude ? <TipRow label={t('tooltip.altitude')} value={`${Math.round(d.altitude)} m`} /> : null}
+              {d && (
+                <TipRow
+                  label={t('tooltip.date')}
+                  value={formatDateTime(new Date(d.dateTime), {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  })}
+                />
+              )}
 
-              {m.weather_cache && (
+              {!d && hoverDetailLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  <CircularProgress size={10} sx={{ color: TIP_LABEL }} />
+                  <Typography sx={{ fontSize: '11px', color: TIP_LABEL }}>{t('tooltip.loadingDetail')}</Typography>
+                </Box>
+              )}
+
+              {d?.weather_cache && (
                 <Box sx={tipSectionSx}>
                   <Typography sx={tipSectionTitleSx}>{t('tooltip.weather')}</Typography>
-                  {m.weather_cache.temperature != null && (
-                    <TipRow label={t('tooltip.temperature')} value={`${m.weather_cache.temperature.toFixed(1)} °C`} />
+                  {d.weather_cache.temperature != null && (
+                    <TipRow label={t('tooltip.temperature')} value={`${d.weather_cache.temperature.toFixed(1)} °C`} />
                   )}
-                  {m.weather_cache.humidity != null && (
-                    <TipRow label={t('tooltip.humidity')} value={`${m.weather_cache.humidity.toFixed(0)} %`} />
+                  {d.weather_cache.humidity != null && (
+                    <TipRow label={t('tooltip.humidity')} value={`${d.weather_cache.humidity.toFixed(0)} %`} />
                   )}
-                  {m.weather_cache.pressure != null && (
-                    <TipRow label={t('tooltip.pressure')} value={`${m.weather_cache.pressure.toFixed(0)} hPa`} />
+                  {d.weather_cache.pressure != null && (
+                    <TipRow label={t('tooltip.pressure')} value={`${d.weather_cache.pressure.toFixed(0)} hPa`} />
                   )}
-                  {m.weather_cache.wind_speed != null && m.weather_cache.wind_direction != null && (
-                    <TipRow label={t('tooltip.wind')} value={`${m.weather_cache.wind_speed.toFixed(1)} m/s (${m.weather_cache.wind_direction.toFixed(0)}°)`} />
+                  {d.weather_cache.wind_speed != null && d.weather_cache.wind_direction != null && (
+                    <TipRow label={t('tooltip.wind')} value={`${d.weather_cache.wind_speed.toFixed(1)} m/s (${d.weather_cache.wind_direction.toFixed(0)}°)`} />
                   )}
-                  {m.weather_cache.cloud_cover != null && (
-                    <TipRow label={t('tooltip.cloudCover')} value={`${m.weather_cache.cloud_cover.toFixed(0)} %`} />
+                  {d.weather_cache.cloud_cover != null && (
+                    <TipRow label={t('tooltip.cloudCover')} value={`${d.weather_cache.cloud_cover.toFixed(0)} %`} />
                   )}
                 </Box>
               )}
 
-              {m.notes && (
+              {d?.notes && (
                 <Typography sx={{ mt: 1, fontSize: '11px', fontStyle: 'italic', color: TIP_LABEL }}>
-                  {m.notes}
+                  {d.notes}
                 </Typography>
               )}
             </Box>
@@ -774,7 +889,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         )}
       </Paper>
     );
-  }, [hoveredObject, hoverInfo, getMeasurementValue, getMeasurementUnit, selectedProject?.project_type, t, formatNumber, formatDateTime]);
+  }, [hoveredObject, hoverInfo, hoverDetail, hoverDetailLoading, selectedProject?.project_type, t, formatNumber, formatDateTime]);
 
   return (
     <Box
@@ -920,63 +1035,45 @@ const MapComponent: React.FC<MapComponentProps> = ({
             <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid }}>{t('loadingMeasurements')}</Typography>
           </Box>
         )}
+
+        {!loading && !isUsingH3 && pointsTruncated && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              maxWidth: 'calc(100% - 32px)',
+              backgroundColor: 'rgba(18,22,27,0.92)',
+              border: `1px solid ${T.border}`,
+              borderRadius: '8px',
+              px: 2,
+              py: 1.25,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.32)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <Typography sx={{ fontFamily: MONO, fontSize: 11, color: T.textMid }}>
+              {t('pointsTruncated', { shown: formatNumber(measurements.length) })}
+            </Typography>
+          </Box>
+        )}
         
         <Paper ref={mapPaperRef} elevation={0} sx={{ height: '100%', borderRadius: 0, overflow: 'hidden' }}>
           <DeckGL
-            initialViewState={INITIAL_VIEW_STATE}
+            initialViewState={cameraTarget}
             controller={deckController}
             layers={layers}
             onViewStateChange={({viewState: newViewState}: any) => {
-              // Solo refrescar overlays (no se realimenta a deck: cámara no controlada)
-              setViewState(newViewState);
-
-              // Actualizar ref sin disparar re-render
-              zoomRef.current = newViewState.zoom;
-
-              // Actualizar zoomLevel solo al cruzar un nivel entero (para elevationScale)
-              const rounded = Math.round(newViewState.zoom);
-              if (rounded !== zoomLevel) {
-                setZoomLevel(rounded);
+              // Al alternar 2D/3D, deck.gl notifica el reseteo de cámara durante su propio
+              // render: esa llamada se aplaza para no actualizar MapComponent en mitad de él
+              if (cameraResetPendingRef.current) {
+                cameraResetPendingRef.current = false;
+                queueMicrotask(() => applyViewState(newViewState));
+                return;
               }
-
-              // Calcular bounds para cualquier cambio de viewport
-              try {
-                const viewport = new WebMercatorViewport({
-                  width: window.innerWidth,
-                  height: window.innerHeight,
-                  ...newViewState
-                });
-                
-                const nw = viewport.unproject([0, 0]);
-                const se = viewport.unproject([viewport.width, viewport.height]);
-                
-                const bounds = {
-                  north: nw[1],
-                  south: se[1],
-                  west: nw[0],
-                  east: se[0]
-                };
-                
-                // Notificar cambios de nivel de zoom con umbral para evitar oscilaciones
-                if (onZoomChange) {
-                  const currentZoomLevel = Math.round(newViewState.zoom);
-                  const zoomDiff = Math.abs(newViewState.zoom - lastNotifiedZoomLevel.current);
-                  
-                  // Solo notificar si cambió el nivel Y la diferencia es >= 0.4
-                  if (currentZoomLevel !== lastNotifiedZoomLevel.current && zoomDiff >= 0.4) {
-                    console.log(`Zoom level changed: ${lastNotifiedZoomLevel.current} → ${currentZoomLevel}`);
-                    lastNotifiedZoomLevel.current = currentZoomLevel;
-                    onZoomChange(currentZoomLevel, bounds);
-                  }
-                }
-                
-                // Notificar cambios de viewport (pan/drag) para caché inteligente
-                if (onViewportChange) {
-                  onViewportChange(bounds);
-                }
-              } catch (error) {
-                console.error('Error calculating bounds:', error);
-              }
+              applyViewState(newViewState);
             }}
             onLoad={() => console.log('DeckGL loaded successfully')}
             onError={(error) => console.error('DeckGL error:', error)}
@@ -1140,6 +1237,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
             <Typography sx={{ fontFamily: MONO, fontSize: 10, color: T.textDim }}>
               {t('chrome.zoom')} {Number(viewState.zoom).toFixed(2)} · {t('chrome.pitch')} {Math.round(viewState.pitch || 0)}°
             </Typography>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={viewMode}
+              onChange={(_, v) => { if (v) handleViewModeChange(v); }}
+              aria-label={t('chrome.viewMode')}
+              sx={segmentedToggleSx}
+            >
+              <ToggleButton value="2d">2D</ToggleButton>
+              <ToggleButton value="3d">3D</ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
           {/* Columna derecha de paneles flotantes */}
@@ -1217,22 +1325,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
                         exclusive
                         value={lightPollutionColorMode}
                         onChange={(_, v) => { if (v) setLightPollutionColorMode(v); }}
-                        sx={{
-                          '& .MuiToggleButton-root': {
-                            fontFamily: MONO,
-                            fontSize: 9,
-                            letterSpacing: '0.5px',
-                            color: T.textDim,
-                            border: `1px solid ${T.hairline}`,
-                            px: 1,
-                            py: 0.25,
-                            textTransform: 'uppercase',
-                            '&.Mui-selected': {
-                              color: T.text,
-                              backgroundColor: 'rgba(255,255,255,0.08)',
-                            },
-                          },
-                        }}
+                        sx={segmentedToggleSx}
                       >
                         <ToggleButton value="illumination">{t('legend.colorMode.illumination')}</ToggleButton>
                         <ToggleButton value="cct">{t('legend.colorMode.cct')}</ToggleButton>

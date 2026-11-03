@@ -66,6 +66,7 @@ const HomePage: React.FC = () => {
   // Hook para cargar mediciones según el zoom
   const {
     measurements,
+    pointsTruncated,
     h3Data,
     h3Resolution,
     totalMeasurements,
@@ -214,6 +215,7 @@ const HomePage: React.FC = () => {
         
         <MapComponent
           measurements={measurements}
+          pointsTruncated={pointsTruncated}
           campaigns={campaigns}
           loading={dataLoading}
           selectedProject={selectedProject}

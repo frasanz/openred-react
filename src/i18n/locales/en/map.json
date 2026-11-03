@@ -1,7 +1,9 @@
 {
   "loadingMeasurements": "Loading measurements...",
+  "pointsTruncated": "Showing the first {{shown}} measurements. Zoom in to see them all.",
   "tooltip": {
     "measurement": "Measurement",
+    "loadingDetail": "Loading details...",
     "cluster": "Measurement cluster",
     "dataGrid": "Data grid",
     "spectrum": "Spectrum #{{id}}",
@@ -92,7 +94,8 @@
   "chrome": {
     "view": "VIEW",
     "zoom": "Z",
-    "pitch": "PITCH"
+    "pitch": "PITCH",
+    "viewMode": "Map view"
   },
   "mapbox": {
     "notConfiguredTitle": "Mapbox token not configured",

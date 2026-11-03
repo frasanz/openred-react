@@ -35,7 +35,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
-import { Track, Measurement, Mission, Campaign, Device } from '../types';
+import { Track, MapPoint, Mission, Campaign, Device } from '../types';
+import { useMeasurementDetail } from '../hooks/useMeasurementDetail';
 import { useAuth } from '../context/AuthContext';
 import { useProjectContext } from '../context/ProjectContext';
 import apiService, { TrackProcessingTimeoutError } from '../services/api';
@@ -138,9 +139,12 @@ const TracksPage: React.FC = () => {
   
   // Track selection and map state
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [trackMeasurements, setTrackMeasurements] = useState<Measurement[]>([]);
+  const [trackMeasurements, setTrackMeasurements] = useState<MapPoint[]>([]);
   const [loadingMap, setLoadingMap] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<any>(null);
+  // Los puntos del track solo traen coordenadas, dosis y velocidad; el resto, al hacer hover
+  const { detail: hoveredDetailRaw, loading: hoveredDetailLoading } = useMeasurementDetail(hoveredPoint?.object?.id);
+  const hoveredDetail: any = hoveredDetailRaw && hoveredDetailRaw.id === hoveredPoint?.object?.id ? hoveredDetailRaw : null;
   const [initialViewState, setInitialViewState] = useState({
     longitude: -3.7038,
     latitude: 40.4168,
@@ -235,8 +239,8 @@ const TracksPage: React.FC = () => {
     try {
       console.log('Loading measurements for track:', track.id);
       
-      // Llamar al endpoint de measurements con filtro por track
-      const measurements = await apiService.getMeasurements({ track: track.id });
+      // Puntos ligeros del track, ordenados por fecha (GET .../compact/)
+      const measurements = await apiService.getTrackPoints(track.id);
       
       console.log(`Loaded ${measurements.length} measurements for track ${track.id}`);
       setTrackMeasurements(measurements);
@@ -680,15 +684,11 @@ const TracksPage: React.FC = () => {
     new ScatterplotLayer({
       id: 'track-points',
       data: trackMeasurements,
-      getPosition: (d: Measurement) => {
-        const lng = typeof d.longitude === 'number' ? d.longitude : parseFloat(d.longitude as string);
-        const lat = typeof d.latitude === 'number' ? d.latitude : parseFloat(d.latitude as string);
-        // Puntos planos en el suelo (sin elevación)
-        return [lng, lat];
-      },
-      getFillColor: (d: Measurement) => {
-        // Usar color basado en dose_rate si es RadiationMeasurement
-        if ('dose_rate' in d && d.dose_rate !== undefined) {
+      // Puntos planos en el suelo (sin elevación)
+      getPosition: (d: MapPoint) => [d.longitude, d.latitude],
+      getFillColor: (d: MapPoint) => {
+        // Usar color basado en dose_rate
+        if (d.dose_rate != null) {
           return getRadiationColorWithAlpha(d.dose_rate);
         }
         // Color naranja por defecto
@@ -1105,7 +1105,7 @@ const TracksPage: React.FC = () => {
                 </Typography>
                 {'dose_rate' in hoveredPoint.object && hoveredPoint.object.dose_rate !== undefined && (
                   <Typography variant="caption" component="div" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
-                    {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredPoint.object.radiation_unit || 'µSv/h'}
+                    {hoveredPoint.object.dose_rate.toFixed(2)} {hoveredDetail?.radiation_unit || 'µSv/h'}
                   </Typography>
                 )}
                 {'speed' in hoveredPoint.object && hoveredPoint.object.speed !== undefined && hoveredPoint.object.speed !== null && (
@@ -1113,9 +1113,9 @@ const TracksPage: React.FC = () => {
                     {(hoveredPoint.object.speed * 3.6).toFixed(2)} km/h
                   </Typography>
                 )}
-                {'count_rate' in hoveredPoint.object && hoveredPoint.object.count_rate && (
+                {hoveredDetail?.count_rate && (
                   <Typography variant="caption" component="div" sx={{ color: 'info.main' }}>
-                    {hoveredPoint.object.count_rate.toFixed(2)} CPM
+                    {hoveredDetail.count_rate.toFixed(2)} CPM
                   </Typography>
                 )}
                 <Typography variant="caption" component="div">
@@ -1128,54 +1128,59 @@ const TracksPage: React.FC = () => {
                     ? hoveredPoint.object.longitude.toFixed(6)
                     : parseFloat(hoveredPoint.object.longitude).toFixed(6) })}
                 </Typography>
-                {hoveredPoint.object.altitude && (
+                {hoveredDetail?.altitude && (
                   <Typography variant="caption" component="div">
-                    {t('tooltip.altitude', { value: hoveredPoint.object.altitude })}
+                    {t('tooltip.altitude', { value: hoveredDetail.altitude })}
                   </Typography>
                 )}
-                {hoveredPoint.object.dateTime && (
+                {hoveredDetail?.dateTime && (
                   <Typography variant="caption" component="div" color="text.secondary">
-                    {formatDateTime(hoveredPoint.object.dateTime)}
+                    {formatDateTime(hoveredDetail.dateTime)}
+                  </Typography>
+                )}
+                {!hoveredDetail && hoveredDetailLoading && (
+                  <Typography variant="caption" component="div" color="text.secondary">
+                    {t('tooltip.loadingDetail')}
                   </Typography>
                 )}
                 
                 {/* Datos del tiempo */}
-                {hoveredPoint.object.weather_cache && (
+                {hoveredDetail?.weather_cache && (
                   <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
                       {t('tooltip.weatherTitle')}
                     </Typography>
-                    {hoveredPoint.object.weather_cache.temperature != null && (
+                    {hoveredDetail.weather_cache.temperature != null && (
                       <Typography variant="caption" component="div">
-                        {hoveredPoint.object.weather_cache.temperature.toFixed(1)}°C
+                        {hoveredDetail.weather_cache.temperature.toFixed(1)}°C
                       </Typography>
                     )}
-                    {hoveredPoint.object.weather_cache.humidity != null && (
+                    {hoveredDetail.weather_cache.humidity != null && (
                       <Typography variant="caption" component="div">
-                        {t('tooltip.humidity', { value: hoveredPoint.object.weather_cache.humidity.toFixed(0) })}
+                        {t('tooltip.humidity', { value: hoveredDetail.weather_cache.humidity.toFixed(0) })}
                       </Typography>
                     )}
-                    {hoveredPoint.object.weather_cache.pressure != null && (
+                    {hoveredDetail.weather_cache.pressure != null && (
                       <Typography variant="caption" component="div">
-                        {t('tooltip.pressure', { value: hoveredPoint.object.weather_cache.pressure.toFixed(1) })}
+                        {t('tooltip.pressure', { value: hoveredDetail.weather_cache.pressure.toFixed(1) })}
                       </Typography>
                     )}
-                    {hoveredPoint.object.weather_cache.wind_speed != null && hoveredPoint.object.weather_cache.wind_direction != null && (
+                    {hoveredDetail.weather_cache.wind_speed != null && hoveredDetail.weather_cache.wind_direction != null && (
                       <Typography variant="caption" component="div">
-                        {t('tooltip.wind', { speed: hoveredPoint.object.weather_cache.wind_speed.toFixed(1), direction: hoveredPoint.object.weather_cache.wind_direction.toFixed(0) })}
+                        {t('tooltip.wind', { speed: hoveredDetail.weather_cache.wind_speed.toFixed(1), direction: hoveredDetail.weather_cache.wind_direction.toFixed(0) })}
                       </Typography>
                     )}
-                    {hoveredPoint.object.weather_cache.cloud_cover != null && (
+                    {hoveredDetail.weather_cache.cloud_cover != null && (
                       <Typography variant="caption" component="div">
-                        {t('tooltip.cloudCover', { value: hoveredPoint.object.weather_cache.cloud_cover.toFixed(0) })}
+                        {t('tooltip.cloudCover', { value: hoveredDetail.weather_cache.cloud_cover.toFixed(0) })}
                       </Typography>
                     )}
                   </Box>
                 )}
                 
-                {hoveredPoint.object.notes && (
+                {hoveredDetail?.notes && (
                   <Typography variant="caption" component="div" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
-                    {hoveredPoint.object.notes}
+                    {hoveredDetail.notes}
                   </Typography>
                 )}
               </Paper>

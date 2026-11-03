@@ -1,7 +1,9 @@
 {
   "loadingMeasurements": "Cargando mediciones...",
+  "pointsTruncated": "Se muestran las primeras {{shown}} mediciones. Acerca el mapa para verlas todas.",
   "tooltip": {
     "measurement": "Medición",
+    "loadingDetail": "Cargando detalles...",
     "cluster": "Cluster de mediciones",
     "dataGrid": "Cuadrícula de datos",
     "spectrum": "Espectro #{{id}}",
@@ -92,7 +94,8 @@
   "chrome": {
     "view": "VIEW",
     "zoom": "Z",
-    "pitch": "PITCH"
+    "pitch": "PITCH",
+    "viewMode": "Vista del mapa"
   },
   "mapbox": {
     "notConfiguredTitle": "Token de Mapbox no configurado",

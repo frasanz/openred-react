@@ -14,6 +14,7 @@ import {
   TrackUploadData,
   TrackUploadResponse,
   Measurement,
+  MapPoint,
   AuthTokens,
   LoginCredentials,
   RegisterData,
@@ -29,6 +30,7 @@ import {
 } from '../types/statistics';
 import { mockMeasurements, mockCampaigns, mockMissions } from './mockData';
 import { MeasurementServiceFactory, MeasurementType } from './measurements';
+import type { MeasurementFilter } from './measurements';
 
 // Estados finales del procesado de un track subido.
 export const isTrackProcessingFinished = (status?: string): boolean =>
@@ -500,7 +502,7 @@ class ApiService {
     south?: number;
     east?: number;
     west?: number;
-  }): Promise<Measurement[]> {
+  }, signal?: AbortSignal): Promise<Measurement[]> {
     try {
       // Determinar qué servicio usar basado en measurementType
       const measurementType = params?.measurementType || 'radiation';
@@ -508,12 +510,53 @@ class ApiService {
         ? this.measurements.lightPollution
         : this.measurements.radiation;
       
-      return await service.getMeasurements(params as any);
+      return await service.getMeasurements(params as any, signal);
     } catch (error) {
+      // Una petición cancelada no es un fallo: no sustituirla por datos de prueba
+      if (axios.isCancel(error)) throw error;
       console.warn('Failed to fetch measurements from backend, using mock data:', error);
       // Return mock data as fallback
       return mockMeasurements;
     }
+  }
+
+  // Puntos ligeros para el mapa (GET .../compact/). truncated = el servidor cortó en su límite
+  async getMapPoints(
+    params: MeasurementFilter & { measurementType?: 'radiation' | 'light_pollution'; [key: string]: any },
+    signal?: AbortSignal
+  ): Promise<{ points: MapPoint[]; truncated: boolean }> {
+    const { measurementType = 'radiation', ...filters } = params;
+    const service = measurementType === 'light_pollution'
+      ? this.measurements.lightPollution
+      : this.measurements.radiation;
+    const fields = measurementType === 'light_pollution'
+      ? ['id', 'lat', 'lon', 'lux', 'cct']
+      : ['id', 'lat', 'lon', 'dose_rate'];
+
+    const { rows, truncated } = await service.getCompact(filters, fields, { signal });
+    return { points: rows as MapPoint[], truncated };
+  }
+
+  // Puntos de un track de radiación, en orden, para pintar su recorrido
+  async getTrackPoints(trackId: number): Promise<MapPoint[]> {
+    const { rows } = await this.measurements.radiation.getCompact(
+      { track: trackId },
+      ['id', 'lat', 'lon', 'dose_rate', 'speed'],
+      { ordering: 'dateTime', limit: 200000 }
+    );
+    return rows as MapPoint[];
+  }
+
+  // Medida completa para el tooltip
+  async getMeasurementDetail(
+    id: number,
+    measurementType: 'radiation' | 'light_pollution' = 'radiation',
+    signal?: AbortSignal
+  ): Promise<Measurement> {
+    const service = measurementType === 'light_pollution'
+      ? this.measurements.lightPollution
+      : this.measurements.radiation;
+    return service.getMeasurement(id, signal);
   }
 
   async createMeasurement(measurementData: Omit<Measurement, 'id' | 'measurement_id'>): Promise<Measurement> {
@@ -563,7 +606,8 @@ class ApiService {
       measurementType?: 'radiation' | 'light_pollution';
       mission?: number;
       campaign?: number;
-    }
+    },
+    signal?: AbortSignal
   ): Promise<{ 
     hexagons: any[], 
     resolution?: number, 
@@ -580,7 +624,7 @@ class ApiService {
       ? this.measurements.radiation 
       : this.measurements.lightPollution;
 
-    return service.getH3Aggregation(params);
+    return service.getH3Aggregation(params, signal);
   }
 
   // Histograma de radiación

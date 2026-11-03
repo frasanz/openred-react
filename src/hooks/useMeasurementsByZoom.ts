@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Measurement, Project, AdaptiveFilters } from '../types';
+import { MapPoint, Project, AdaptiveFilters } from '../types';
 import apiService from '../services/api';
 
 interface UseMeasurementsByZoomOptions {
@@ -37,7 +37,8 @@ export interface HistogramFetchParams {
 }
 
 interface UseMeasurementsByZoomResult {
-  measurements: Measurement[];
+  measurements: MapPoint[];
+  pointsTruncated: boolean; // el servidor cortó los puntos en su límite
   h3Data: any[];
   loading: boolean;
   error: string | null;
@@ -55,6 +56,11 @@ interface UseMeasurementsByZoomResult {
 
 // CONFIGURACIÓN DE ZOOM Y RESOLUCIÓN H3
 const H3_ZOOM_THRESHOLD = 14; // Usar H3 hasta zoom 14, puntos desde zoom 15+
+
+// Factor de expansión del bbox pedido (caché al mover el mapa).
+// En puntos se expande menos: cada punto cuesta mucho más que un hexágono.
+const H3_BOUNDS_FACTOR = 2;      // área x4
+const POINTS_BOUNDS_FACTOR = 1.5; // área x2,25
 
 /**
  * Mapea el nivel de zoom del mapa a una resolución H3.
@@ -135,7 +141,8 @@ export const useMeasurementsByZoom = ({
   campaignId,
   bounds
 }: UseMeasurementsByZoomOptions): UseMeasurementsByZoomResult => {
-  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [measurements, setMeasurements] = useState<MapPoint[]>([]);
+  const [pointsTruncated, setPointsTruncated] = useState(false);
   const [h3Data, setH3Data] = useState<any[]>([]);
   const [h3Resolution, setH3Resolution] = useState<number>(1);
   const [totalMeasurements, setTotalMeasurements] = useState<number>(0);
@@ -165,6 +172,11 @@ export const useMeasurementsByZoom = ({
   // Caché para el bounding box expandido que ya fue cargado
   const cachedBoundsRef = useRef<{ north: number; south: number; east: number; west: number } | null>(null);
 
+  // Petición en curso: se cancela cuando empieza otra o al desmontar
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
+
   useEffect(() => {
     if (!enabled || !selectedProject) {
       return;
@@ -177,11 +189,13 @@ export const useMeasurementsByZoom = ({
     const startDate = formatDateToISO(filters?.common?.startDate);
     const endDate = formatDateToISO(filters?.common?.endDate);
     
-    // Invalidar caché en cambios importantes (edge cases)
+    // Invalidar caché en cambios importantes (edge cases).
+    // El zoom solo importa en H3 (cambia la resolución); los puntos no dependen del zoom
+    // y los ya cargados siguen valiendo mientras el viewport quede dentro del bbox cacheado.
     const shouldInvalidateCache =
       lastLoadedRef.current.projectId !== projectId ||
       lastLoadedRef.current.isH3 !== isUsingH3 ||
-      lastLoadedRef.current.zoom !== roundedZoom ||
+      (isUsingH3 && lastLoadedRef.current.zoom !== roundedZoom) ||
       lastLoadedRef.current.startDate !== startDate ||
       lastLoadedRef.current.endDate !== endDate ||
       lastLoadedRef.current.missionId !== (missionId ?? -1) ||
@@ -233,6 +247,10 @@ export const useMeasurementsByZoom = ({
         console.log(`Campaign filter: ${campaignId}`);
       }
       
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       // NO borrar datos existentes - mantenerlos mientras cargamos los nuevos
       setLoading(true);
       setError(null);
@@ -275,7 +293,7 @@ export const useMeasurementsByZoom = ({
           // Expandir y usar bounding box si está presente (x2 para caché)
           let requestBounds = bounds;
           if (bounds) {
-            requestBounds = expandBounds(bounds, 2);
+            requestBounds = expandBounds(bounds, H3_BOUNDS_FACTOR);
             params.north = requestBounds.north;
             params.south = requestBounds.south;
             params.east = requestBounds.east;
@@ -284,7 +302,8 @@ export const useMeasurementsByZoom = ({
             console.log(`Requesting expanded bounds: N:${requestBounds.north.toFixed(2)} S:${requestBounds.south.toFixed(2)} E:${requestBounds.east.toFixed(2)} W:${requestBounds.west.toFixed(2)}`);
           }
 
-          const data = await apiService.getH3Aggregation(params);
+          const data = await apiService.getH3Aggregation(params, controller.signal);
+          if (controller.signal.aborted) return;
           
           // Cachear los bounds expandidos después de cargar exitosamente
           if (requestBounds) {
@@ -300,7 +319,7 @@ export const useMeasurementsByZoom = ({
           setTotalMeasurements(total);
           setStatistics(data.statistics);
         } else {
-          // Zoom >= 16: Cargar puntos individuales desde /api/radiation-measurements/ o /api/light-pollution-measurements/
+          // Zoom >= 15: puntos ligeros desde .../compact/ (el detalle se pide al hacer hover)
           const params: any = {
             project: projectId,
             measurementType // Pasar el tipo de medición
@@ -328,10 +347,10 @@ export const useMeasurementsByZoom = ({
             if (filters?.radiation?.maxDoseRate !== undefined) params.max_dose_rate = filters.radiation.maxDoseRate;
           }
 
-          // Expandir y usar bounding box si está presente (x2 para caché)
+          // Expandir y usar bounding box si está presente (x1,5 para caché)
           let requestBounds = bounds;
           if (bounds) {
-            requestBounds = expandBounds(bounds, 2);
+            requestBounds = expandBounds(bounds, POINTS_BOUNDS_FACTOR);
             params.north = requestBounds.north;
             params.south = requestBounds.south;
             params.east = requestBounds.east;
@@ -340,15 +359,17 @@ export const useMeasurementsByZoom = ({
             console.log(`Requesting expanded bounds: N:${requestBounds.north.toFixed(2)} S:${requestBounds.south.toFixed(2)} E:${requestBounds.east.toFixed(2)} W:${requestBounds.west.toFixed(2)}`);
           }
 
-          const data = await apiService.getMeasurements(params);
+          const { points: data, truncated } = await apiService.getMapPoints(params, controller.signal);
+          if (controller.signal.aborted) return;
           
-          // Cachear los bounds expandidos después de cargar exitosamente
-          if (requestBounds) {
-            cachedBoundsRef.current = requestBounds;
-          }
-          
+          // Cachear los bounds expandidos después de cargar exitosamente.
+          // Si el servidor cortó, el área no está completa: sin caché, para que al acercar
+          // (bbox más pequeño, dentro del anterior) se vuelva a pedir y salgan todos.
+          cachedBoundsRef.current = requestBounds && !truncated ? requestBounds : null;
+
           console.log(`${data.length} individual points loaded for zoom ${roundedZoom}`);
           setMeasurements(data);
+          setPointsTruncated(truncated);
           setTotalMeasurements(data.length);
           setStatistics(undefined); // Limpiar estadísticas cuando vemos puntos individuales
         }
@@ -388,18 +409,24 @@ export const useMeasurementsByZoom = ({
           maxDoseRate: filters?.radiation?.maxDoseRate,
         };
       } catch (err: any) {
+        // Cancelada porque empezó otra carga (o se desmontó): no es un error
+        if (controller.signal.aborted) return;
         console.error('Error loading data:', err);
         setError(err.message || 'Error al cargar los datos');
         setMeasurements([]);
+        setPointsTruncated(false);
         setH3Data([]);
         setTotalMeasurements(0);
       } finally {
-        setLoading(false);
+        // Si la sustituyó otra carga, esa es la que quita el indicador
+        if (abortControllerRef.current === controller) {
+          setLoading(false);
+        }
       }
     };
 
     loadData();
   }, [selectedProject, zoom, enabled, isUsingH3, onProgress, filters, missionId, campaignId, bounds]);
 
-  return { measurements, h3Data, loading, error, isUsingH3, h3Resolution, totalMeasurements, statistics, histogramFetchParams };
+  return { measurements, pointsTruncated, h3Data, loading, error, isUsingH3, h3Resolution, totalMeasurements, statistics, histogramFetchParams };
 };

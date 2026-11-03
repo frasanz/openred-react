@@ -29,6 +29,7 @@
   },
   "tooltip": {
     "title": "Individual Measurement",
+    "loadingDetail": "Loading details...",
     "lat": "Lat: {{value}}",
     "lng": "Lng: {{value}}",
     "altitude": "{{value}}m",
