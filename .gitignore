@@ -24,3 +24,6 @@ yarn-error.log*
 
 # deployment
 deploy.sh
+
+# variables de entorno locales (usar .env.example como plantilla)
+.env
