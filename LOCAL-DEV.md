@@ -80,6 +80,18 @@ The proxy is kept anyway, for two reasons that have nothing to do with CORS: `sr
 uses an empty `baseURL` in development and therefore issues relative URLs, and the proxy keeps
 cookies same-origin.
 
+### CSRF, which was a problem
+
+Signing in used to fail with `CSRF Failed: CSRF token missing.` for anyone who had logged into the
+API's `/admin/` first. This app authenticates with a token and never sends an `X-CSRFToken` header,
+but DRF's `SessionAuthentication` would pick up the admin's session cookie — **cookies ignore the
+port**, so `localhost:8020` reaches `localhost:3010` — authenticate the request from it, and then
+demand CSRF.
+
+Fixed on the API side: `compose.yaml` there sets `ENABLE_SESSION_AUTH=False`, so the session cookie
+is ignored and token auth is the only path. Nothing is needed here, and no cookie-clearing ritual.
+If you ever see that error again, you are pointing at an API that does not have that setting.
+
 ## What works, and what cannot
 
 Verified against the seeded dataset: the statistics screens, the histogram, the H3 heatmap, tracks
