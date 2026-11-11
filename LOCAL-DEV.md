@@ -86,7 +86,7 @@ Verified against the seeded dataset: the statistics screens, the histogram, the 
 and their spectra, devices, device models, stations (including the offline one), the PDF reports, and
 sign-in.
 
-Two things do not, and neither is caused by the dataset:
+Three things do not, and none of them is caused by the dataset:
 
 **1. The map has no points.** It gets them from `GET /api/{radiation,light-pollution}-measurements/compact/`,
 which does not exist on OpenRed's `federation` branch — only on the unmerged
@@ -99,7 +99,21 @@ Four more endpoints this app calls 404 on the API as it stands: `/api/stats/acti
 `/api/missions/` and `/api/campaigns/` exist only as **nested** routes under a project or a mission;
 `/api/profile/` does not exist.
 
-**2. The map has no basemap, because we have no Mapbox token.** Everything else works without one.
+**2. `/login` dies without a Google client id, and takes email/password with it.**
+`src/index.tsx` mounts `GoogleOAuthProvider` unconditionally with
+`process.env.REACT_APP_GOOGLE_CLIENT_ID || ''`, and `LoginPage` calls `useGoogleLogin` as a
+top-level hook. With no client id, Google's `gsi/client` throws *"Missing required parameter
+client_id"* as the page mounts, and CRA's error overlay covers the screen — so the sign-in form is
+unusable even though that path needs no Google at all. A hook cannot be called conditionally, so
+there is no fix here that does not restructure the page; instead `.env.example` carries a
+**correctly-shaped placeholder** client id, which is enough for the script to initialise. Signing in
+with Google will not work locally in any case: that needs a real OAuth client with
+`http://localhost:3010` registered as an authorised origin.
+
+If you see that error, your `.env` predates this: copy `.env.example` again and **restart the dev
+server** — CRA reads `.env` only at startup — then hard-reload the page.
+
+**3. The map has no basemap, because we have no Mapbox token.** Everything else works without one.
 `check-env.js` reports whether a token is present and whether it looks valid (it must start with
 `pk.`). Put one in `REACT_APP_MAPBOX_TOKEN` in `.env` if you have a free Mapbox account; nothing
 else needs it.
