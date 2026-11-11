@@ -43,6 +43,12 @@ docker compose exec api python manage.py seed_local
 
 Sign in with `ada@openred.invalid` / `devpass12345`.
 
+**If you register an account instead**, sign-in will refuse it with *"El correo electrónico no ha
+sido verificado"* — `ACCOUNT_EMAIL_VERIFICATION` is `'mandatory'`, as in production, and nothing on
+screen tells you where to confirm. The mail is waiting at **<http://localhost:8026/>** (mailpit, in
+the API's composition); click the link in it. The seeded accounts need none of this: they are created
+already confirmed.
+
 ### `npm ci`, not `npm install`
 
 **`npm install` produces a tree that does not compile.** `package.json` uses caret ranges, and three
