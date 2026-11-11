@@ -1,0 +1,134 @@
+# Running the OpenRed React app locally
+
+Against the local API and its seeded sample data — **not** against production.
+
+This is on the `federation` branch. Note that this repository's default branch is `master`, not
+`main`, so the branch was cut from `origin/master`.
+
+## Before anything else: the dev server used to point at production
+
+`package.json` carried `"proxy": "https://api.open-red.es"`. CRA's `proxy` key is a literal string
+with no way to read the environment, so `npm start` with no configuration sent **every** API call —
+sign-ins and writes included — to the live service, and said nothing about it.
+
+That key is gone. `src/setupProxy.js` does the job instead, because it is a function and can be
+configured:
+
+```js
+const API_TARGET = process.env.OPENRED_API_PROXY || 'http://localhost:8020';
+```
+
+So the default is now the local API, reaching anything else takes an explicit environment variable,
+and the dev server prints which target it is using on startup — with a warning if that target is not
+a local address. The pre-existing SDGSAT tile proxy in the same file is untouched.
+
+## Start it
+
+```sh
+cp .env.example .env
+npm ci
+npm start
+```
+
+Then <http://localhost:3010>.
+
+The API has to be up first. See `LOCAL-DEV.md` in
+[`Ibercivis/OpenRed`](https://github.com/Ibercivis/OpenRed), branch `federation`:
+
+```sh
+cd ../OpenRed
+docker compose up -d --build
+docker compose exec api python manage.py seed_local
+```
+
+Sign in with `ada@openred.invalid` / `devpass12345`.
+
+### `npm ci`, not `npm install`
+
+**`npm install` produces a tree that does not compile.** `package.json` uses caret ranges, and three
+transitive dependencies have moved on since the lockfile was written:
+
+- `esp-web-tools@10.4.0` wants `@material/web@^2.2.0` and imports
+  `@material/web/*/internal/*-styles.js`; `@material/web@2.5.0` ships those as `.css`. Eleven
+  "Module not found" errors.
+- `date-fns@4` no longer exports `Locale` from `date-fns/locale`, which `src/utils/i18nFormat.ts`
+  imports. `TS2305`.
+
+`package-lock.json` is committed and pins the combination that works (`esp-web-tools@10.2.1`,
+`@material/web@2.4.1`), and `npm ci` installs exactly that and compiles cleanly. So use `npm ci`,
+and **do not commit a regenerated lockfile** as part of local-development work.
+
+One caveat: `npm ci` deletes `node_modules`, and it fails with `ENOTEMPTY` on
+`node_modules/.cache/babel-loader` if the dev server is running. Stop the dev server first.
+
+### Ports
+
+| | |
+|---|---|
+| 3010 | this app — set in `.env`, because **3000 and 3001 are taken** by the other Ibercivis frontends on a development laptop |
+| 8020 | the local OpenRed API |
+
+## CORS, which turned out not to be a problem
+
+`CORS_SOLUTION.md` in this repository is about an older state of things and its "install
+django-cors-headers" section is no longer needed. `django-cors-headers` **is** installed in OpenRed,
+is in `INSTALLED_APPS`, and `CorsMiddleware` is ahead of `CommonMiddleware`; `openred/settings.py`
+sets `CORS_ALLOW_ALL_ORIGINS = True` whenever `DEBUG` is on. So the API does send the headers and a
+direct cross-origin call works.
+
+The proxy is kept anyway, for two reasons that have nothing to do with CORS: `src/services/api.ts`
+uses an empty `baseURL` in development and therefore issues relative URLs, and the proxy keeps
+cookies same-origin.
+
+## What works, and what cannot
+
+Verified against the seeded dataset: the statistics screens, the histogram, the H3 heatmap, tracks
+and their spectra, devices, device models, stations (including the offline one), the PDF reports, and
+sign-in.
+
+Two things do not, and neither is caused by the dataset:
+
+**1. The map has no points.** It gets them from `GET /api/{radiation,light-pollution}-measurements/compact/`,
+which does not exist on OpenRed's `federation` branch — only on the unmerged
+`origin/feature/weather-cache-and-stats`, commit `69eb384`. `getCompact` in
+`src/services/measurements/BaseMeasurementService.ts` throws rather than falling back, so the layer
+renders nothing. That branch was deliberately left unmerged.
+
+Four more endpoints this app calls 404 on the API as it stands: `/api/stats/activity/` and
+`/api/stats/records/` exist on no branch (`StatsViewSet` has only `global` and `heatmap`);
+`/api/missions/` and `/api/campaigns/` exist only as **nested** routes under a project or a mission;
+`/api/profile/` does not exist.
+
+**2. The map has no basemap, because we have no Mapbox token.** Everything else works without one.
+`check-env.js` reports whether a token is present and whether it looks valid (it must start with
+`pk.`). Put one in `REACT_APP_MAPBOX_TOKEN` in `.env` if you have a free Mapbox account; nothing
+else needs it.
+
+### The mock-data fallback will mislead you
+
+`src/services/api.ts` catches a failed call to measurements, missions or campaigns and silently
+returns invented Zaragoza data, with only a `console.warn`:
+
+```ts
+console.warn('Failed to fetch measurements from backend, using mock data:', error);
+return mockMeasurements;
+```
+
+**So a screen full of plausible measurements is not evidence that the API is reachable or that
+seeding worked.** Missions and campaigns in particular are *always* mock data right now, because the
+flat endpoints do not exist. To check what is real:
+
+```sh
+curl http://localhost:3010/api/radiation-measurements/count/
+# {"total":384,"movement":240,"static":144}
+```
+
+A seeded row carries `raw_data.source == "Safecast"`; a mock row has `id: 1` and the note
+"Medición de prueba en Zaragoza centro".
+
+## No production data, anywhere
+
+The sample in the API is built from public sources — Safecast (CC0) and Globe at Night (CC BY 4.0) —
+with every field that could name a contributor or an instrument dropped before it reaches the
+repository. The accounts, devices and projects are invented. Nothing is copied from production and
+there is nothing to anonymise. The reasoning is in `LOCAL-DEV.md` in the OpenRed repository.
