@@ -27,3 +27,9 @@ deploy.sh
 
 # variables de entorno locales (usar .env.example como plantilla)
 .env
+
+# Create React App also reads .env.production for `npm run build`, and the block
+# above only ignores .env.production.local. In a public repository that is one
+# `git add -A` away from publishing the production Mapbox token, so ignore the
+# name CRA invites you to use. Production values belong outside the clone.
+.env.production
