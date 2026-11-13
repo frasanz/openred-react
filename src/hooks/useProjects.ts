@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Project } from '../types';
+import { API_BASE_URL } from '../config/api';
 
 export type { Project };
 
@@ -13,11 +14,7 @@ export const useProjects = () => {
     setError(null);
     
     try {
-      const baseURL = process.env.NODE_ENV === 'development' 
-        ? '' // Usar proxy en desarrollo
-        : 'https://api.open-red.es'; // URL completa para producción
-      
-      const url = `${baseURL}/api/projects/`;
+      const url = `${API_BASE_URL}/api/projects/`;
       
       const token = localStorage.getItem('access_token');
       const headers: HeadersInit = {
@@ -51,13 +48,9 @@ export const useProjects = () => {
 
   const refreshProjectCounts = async (projectId?: number) => {
     try {
-      const baseURL = process.env.NODE_ENV === 'development' 
-        ? '' // Usar proxy en desarrollo
-        : 'https://api.open-red.es'; // URL completa para producción
-      
       const url = projectId 
-        ? `${baseURL}/api/projects/${projectId}/`
-        : `${baseURL}/api/projects/`;
+        ? `${API_BASE_URL}/api/projects/${projectId}/`
+        : `${API_BASE_URL}/api/projects/`;
       
       const token = localStorage.getItem('access_token');
       const headers: HeadersInit = {

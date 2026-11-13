@@ -28,11 +28,12 @@ Añadido proxy para redirigir peticiones API al backend Django:
 El servicio API ahora detecta el entorno:
 
 ```typescript
-// En desarrollo: usa rutas relativas (proxy)
-// En producción: usa URL completa del backend
-this.baseURL = process.env.NODE_ENV === 'development' 
-  ? '' // Usar proxy en desarrollo
-  : (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000');
+// src/config/api.ts -- un unico sitio, importado por src/services/api.ts y
+// por src/hooks/useProjects.ts.
+export const API_BASE_URL =
+  process.env.NODE_ENV === 'development'
+    ? ''  // rutas relativas: las resuelve el proxy del dev server
+    : (process.env.REACT_APP_API_URL || 'https://api.open-red.es');
 ```
 
 ### 3. Datos de prueba como fallback
@@ -97,7 +98,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 3. El mapa mostrará mediciones mock de Zaragoza
 
 ### Producción
-1. Configura `REACT_APP_API_URL` en el entorno de producción
+1. Configura `REACT_APP_API_URL` al construir, si la API no es la de por defecto
 2. Asegúrate que el backend Django permite CORS desde tu dominio
 3. Ejecuta `npm run build` para generar build de producción
 
@@ -133,7 +134,9 @@ CORS_ALLOW_ALL_ORIGINS = True
 ### Variables de entorno necesarias:
 ```bash
 # .env
-REACT_APP_API_URL=http://localhost:8000  # Solo para producción
+# REACT_APP_API_URL=...                  # Solo build de produccion; sin definir
+                                         # usa https://api.open-red.es
+OPENRED_API_PROXY=http://localhost:8020  # Destino del proxy en `npm start`
 REACT_APP_MAPBOX_TOKEN=tu_token_aqui     # Requerido para mapas
 ```
 
