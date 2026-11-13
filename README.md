@@ -293,8 +293,14 @@ Panel de filtros con estados sincronizados.
 Cliente HTTP centralizado con interceptores.
 
 ```typescript
+// La direccion de la API se decide en un unico sitio, src/config/api.ts:
+// cadena vacia en desarrollo (las llamadas son relativas y pasan por el proxy
+// del dev server), y REACT_APP_API_URL -- o https://api.open-red.es si no se
+// define -- en un build de produccion.
+import { API_BASE_URL } from '../config/api';
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -389,10 +395,15 @@ npm install
 Crear archivo `.env` en la raíz:
 
 ```bash
-# Backend API
-REACT_APP_API_URL=https://api.open-red.es
-# o para desarrollo local:
-# REACT_APP_API_URL=http://localhost:8000
+# Backend API. Solo la usa `npm run build`; en desarrollo se ignora, porque
+# las llamadas son relativas y el destino lo fija OPENRED_API_PROXY (ver
+# .env.example). Si no se define, el build usa https://api.open-red.es.
+# Ojo: CRA lee .env tambien al construir, asi que un valor local aqui se
+# hornea en el bundle de produccion. Mejor dejarla sin definir.
+# REACT_APP_API_URL=https://api.open-red.es
+
+# Destino del proxy del dev server. Por defecto, la API local en el 8020.
+# OPENRED_API_PROXY=http://localhost:8020
 
 # Mapbox Token (obligatorio)
 REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6InlvdXJ0b2tlbiJ9...
@@ -478,7 +489,8 @@ proxy_cache_path /var/cache/nginx/tiles levels=1:2 keys_zone=tiles:10m max_size=
 
 | Variable | Requerida | Descripción | Default |
 |----------|-----------|-------------|---------|
-| `REACT_APP_API_URL` | Sí | URL del backend Django | `http://localhost:8000` |
+| `REACT_APP_API_URL` | No | URL del backend Django. **Solo en `npm run build`**; en desarrollo se ignora | `https://api.open-red.es` |
+| `OPENRED_API_PROXY` | No | Destino del proxy del dev server. **Solo en `npm start`** | `http://localhost:8020` |
 | `REACT_APP_MAPBOX_TOKEN` | Sí | Token de Mapbox API | - |
 | `REACT_APP_DEBUG` | No | Habilitar logs debug | `false` |
 | `REACT_APP_ENABLE_MARNA` | No | Habilitar capa MARNA | `true` |
@@ -1164,7 +1176,8 @@ cp .env.example .env
 ```
 
 Variables disponibles:
-- `REACT_APP_API_URL`: URL del backend Django (por defecto: http://localhost:8000)
+- `REACT_APP_API_URL`: URL del backend Django para un build de produccion (por defecto: https://api.open-red.es). En desarrollo no se usa.
+- `OPENRED_API_PROXY`: a donde reenvia el proxy del dev server (por defecto: http://localhost:8020)
 - `REACT_APP_MAPBOX_TOKEN`: Token de acceso de Mapbox (requerido para los mapas)
 
 ### Instalación

@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { API_BASE_URL } from '../config/api';
 import {
   User,
   DeviceModel,
@@ -54,12 +55,9 @@ class ApiService {
   private loadingPromise: Promise<Measurement[]> | null = null; // Para evitar peticiones duplicadas
 
   constructor() {
-    // Configurar URLs específicas por entorno
-    // En desarrollo: usar proxy de package.json (baseURL vacío)
-    // En producción: URL completa del backend
-    this.baseURL = process.env.NODE_ENV === 'development' 
-      ? ''  // Usa el proxy configurado en package.json
-      : 'https://api.open-red.es';  // URL completa para producción
+    // Where the API lives is decided in src/config/api.ts, for this file and
+    // for src/hooks/useProjects.ts alike.
+    this.baseURL = API_BASE_URL;
     
     this.api = axios.create({
       baseURL: this.baseURL,

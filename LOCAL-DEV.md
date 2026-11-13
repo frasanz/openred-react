@@ -22,6 +22,32 @@ So the default is now the local API, reaching anything else takes an explicit en
 and the dev server prints which target it is using on startup — with a warning if that target is not
 a local address. The pre-existing SDGSAT tile proxy in the same file is untouched.
 
+## Two variables name the API, and they are not interchangeable
+
+| | read by | matters during | unset |
+|---|---|---|---|
+| `OPENRED_API_PROXY` | `src/setupProxy.js` | `npm start` | `http://localhost:8020` |
+| `REACT_APP_API_URL` | `src/config/api.ts` | `npm run build` | `https://api.open-red.es` |
+
+`REACT_APP_API_URL` used to be read by nothing at all. It sat in `.env.example`, in the README and
+in `CORS_SOLUTION.md` looking like the way to point the app at another API, while `src/services/api.ts`
+and `src/hooks/useProjects.ts` each hardcoded the production host behind a copy of the same
+`NODE_ENV` ternary. Those three copies are now one module, `src/config/api.ts`, and it reads the key.
+A build that sets nothing behaves exactly as it did before.
+
+**The trap worth knowing:** Create React App reads `.env` during `npm run build`, not only during
+`npm start`. So a `REACT_APP_API_URL=http://localhost:8020` left in your `.env` is baked into a
+production bundle, which then calls localhost from whatever server it is deployed to. `.env.example`
+therefore ships that key **commented out**, and a build that needs a non-default API should pass it
+for that build only:
+
+```sh
+REACT_APP_API_URL=https://api.example.org npm run build
+```
+
+Development never reads it: there the baseURL is relative and the proxy decides. `node check-env.js`
+prints both variables and what each one resolves to.
+
 ## Start it
 
 ```sh
