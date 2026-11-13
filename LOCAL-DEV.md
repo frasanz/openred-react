@@ -132,16 +132,21 @@ sign-in.
 
 Three things do not, and none of them is caused by the dataset:
 
-**1. The map has no points.** It gets them from `GET /api/{radiation,light-pollution}-measurements/compact/`,
-which does not exist on OpenRed's `federation` branch — only on the unmerged
-`origin/feature/weather-cache-and-stats`, commit `69eb384`. `getCompact` in
-`src/services/measurements/BaseMeasurementService.ts` throws rather than falling back, so the layer
-renders nothing. That branch was deliberately left unmerged.
-
-Four more endpoints this app calls 404 on the API as it stands: `/api/stats/activity/` and
+**1. Five endpoints this app calls 404 on the API as it stands.** `/api/stats/activity/` and
 `/api/stats/records/` exist on no branch (`StatsViewSet` has only `global` and `heatmap`);
 `/api/missions/` and `/api/campaigns/` exist only as **nested** routes under a project or a mission;
 `/api/profile/` does not exist.
+
+**`…/compact/` is not one of them, and an earlier version of this file said it was.** Both of the
+map's data paths are served by OpenRed's `federation` branch — `…/h3-aggregation/` below zoom 15 and
+`…/compact/` at zoom 15 and above, for radiation and for light pollution alike — and both were
+measured answering `200` with seeded rows on 12 November 2026, against the running API. The wrong
+claim came from reading OpenRed's `main`, which until 12 November 2026 was a branch nobody was
+running: it had stood still since July 2025 while the application was developed on
+`feature/weather-cache-and-stats`. `main` now points at that deployed commit, `federation` is cut
+from it, and the endpoint is absent from nowhere. So the API serves the map its data; what the map
+still lacks is a basemap, for the Mapbox reason in item 3. One caveat: the measurement was taken on
+the API, and this app has not been re-run since OpenRed's `federation` moved to that commit.
 
 **2. `/login` dies without a Google client id, and takes email/password with it.**
 `src/index.tsx` mounts `GoogleOAuthProvider` unconditionally with
